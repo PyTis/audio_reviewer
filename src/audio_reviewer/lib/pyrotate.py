@@ -1,0 +1,260 @@
+#!/usr/bin/python3
+"""pyrotate
+========
+Manually shifts a log file, moving each one back a log number.
+"""
+
+try:
+  import gzip
+except:
+  gzip = None
+
+import grp
+import pwd
+import optparse
+import shutil
+import os
+import glob
+import sys
+from pytis import PyTis
+
+PyTis.__nonprocess__=True
+
+__curdir__ = os.path.abspath(os.path.dirname(__file__))
+__created__ = '06:27pm 05 May, 2016'
+__author__ = 'Josh Lee'
+__copyright__ = 'PyTis.com'
+__version__ = '1.5'
+
+def run(opts,args, log):
+  """pyrotate run doc help"""
+
+  for path in args:
+    base = os.path.basename(path)
+    fpath = os.path.abspath(path)
+    stat_info = os.stat(fpath)
+
+    # skip rotating this empty file
+    fsize = stat_info.st_size
+    if not fsize or fsize == 0:
+      log.debug('skipping, NOT rotating EMPTY file: "%s"' % fpath)
+      continue # continue=skip
+
+    uid = stat_info.st_uid
+    gid = stat_info.st_gid
+    user = pwd.getpwuid(uid)[0]
+    group = grp.getgrgid(gid)[0]
+
+    logmode = oct(os.stat(fpath).st_mode & 0o777)
+    log.debug('logmode: %s' % str(logmode))
+
+    mode = os.stat(fpath).st_mode
+    log.debug('mode: %s' % str(mode))
+
+    matches = glob.glob("%s*" % fpath)
+    matches.sort()
+    log.debug("MATCHES: %s" % repr(matches))
+    while len(matches)>0:
+      movefrom = str(matches.pop())
+
+      number = movefrom.replace(fpath,'').replace('.gz','').replace('.','')
+      next_number = None
+      if number:
+        next_number = str(int(number)+1)
+      moveto = '%s.%s.gz' % (base, next_number)  
+
+      if number and int(number) > 1:
+        log.debug('move: %s to: %s' % (movefrom, moveto))
+        shutil.move(movefrom, moveto)
+        log.debug("chown'ed: %s to user: %s, group: %s" % (moveto, user, group))
+        os.chown(moveto, uid, gid)
+        log.debug("chmod'ed: %s to %s" % (moveto,logmode))
+        os.chmod(moveto, mode)
+      elif number and int(number)==1:
+        if gzip is None:
+          log.debug('os.popen(command="gzip %s")' % movefrom)
+          os.popen('gzip %s' % movefrom)
+          log.debug('move: %s to: %s' % (movefrom, moveto))
+          shutil.move('%s.gz' % movefrom, moveto)
+        else:
+          log.debug('gzip w/Python %s to: %s' % (movefrom, moveto))
+
+          with open(movefrom, 'rb') as f_in, gzip.open(moveto, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+
+        log.debug("chown'ed: %s to user: %s, group: %s" % (moveto, user, group))
+        os.chown(moveto, uid, gid)
+        log.debug("chmod'ed: %s to %s" % (moveto, logmode))
+        os.chmod(moveto, mode)
+
+      else:
+        log.debug("move: %s to: %s.1" % (movefrom, movefrom))
+        shutil.move(movefrom, "%s.1" % movefrom)
+        log.debug("chown'ed: %s to user: %s, group: %s" % ("%s.1" % movefrom,
+          user, group))
+        os.chown("%s.1" % movefrom, uid, gid)
+        log.debug("chmod'ed: %s to %s" % ("%s.1" % movefrom, logmode))
+        os.chmod("%s.1" % movefrom, mode)
+
+    log.debug("truncate: %s" % fpath)
+
+    handle = open(fpath,'wb')
+    handle.truncate()
+    handle.write(b'')
+    handle.close()
+
+    log.debug("chown'ed: %s to user: %s, group: %s" % (fpath, user, group))
+    os.chown(fpath, uid, gid)
+    log.debug("chmod'ed: %s to %s" % (fpath, logmode))
+    os.chmod(fpath, mode)
+
+
+def main():
+  """usage: pyrotate [-DVh] <logfile>"""
+  global log
+  
+  errors=[]
+  PyTis.__option_always__ = [True]
+  help_dict = dict(version=__version__,
+             author=__author__,
+             created=__created__,
+             copyright=__copyright__)
+  parser = PyTis.MyParser()
+
+  parser.extra_txt = "\n\n%s\n" % run.__doc__ + """
+
+
+examples:  
+  pyrotate /var/log/access.log
+
+  i.e. 
+  ls >
+    access.log   access.log.1    access.log.2.gz    access.log.3.gz
+  pyrotate access.log
+    access.log.3.gz would be moved to access.log.4.gz
+    access.log.2.gz would be moved to access.log.3.gz
+    access.log.1    would be moved to access.log.2.gz
+    access.log      would be moved to access.log.1
+    and then access.log is truncated.
+
+
+
+SEE ALSO:
+  logrotate
+
+COPYRIGHT:
+  %(copyright)s
+
+AUTHOR:
+  %(author)s
+
+KNOWN ISSUES:
+  BUG 1:
+  TIMESTAMPS -
+    When logrotate automatically rotates files, the timestamps get shifted as
+    well.  When pyrotate shifts all of the files for us, the modified times are
+    affected.  I need to manually grab the created, modified, and accessed
+    times from the files, and reset them after moving them around.  
+  
+    In windows follow this example:
+      http://stackoverflow.com/questions/21156145/modify-file-create-access-write-timestamp-with-python-under-windows
+
+    In python, I'll need to investigate a little.  For now, I don't have time
+    to worry about this, and I'll work on it at a latter date, for a later
+    version.
+
+
+HISTORY:
+  Original Author
+
+CHANGE LOG:
+
+  v1.5 MINOR CHANGE                                                June 19, 2016
+    Issue: Special logs of mine were owned by the user www-data and group
+    postgres.  These had to maintain their state, but after I ran this program,
+    the new file was only owned by the current user and group.
+
+    Prior to this change, the the current user and group would then own the
+    new, truncated log file.  Now the UID, GID, and MODE is copied prior to
+    rotation, then applied as needed.  This was a much needed fix, as if I ran
+    this as root, the new file would then be owned by 1000:1000 (root:root) and
+    chmod 0644.  This cuased major problems with apache and postgres logs, as
+    the apache logs needed to be owned by www-data.  
+     
+  v1.0 ORIGINAL RELEASE                                              May 5, 2016
+    Original Publish.
+
+CREATED:
+  %(created)s
+
+VERSION:
+  %(version)s
+""" % help_dict
+
+  parser.formatter.format_description = lambda s:s
+  parser.set_description(__doc__)
+  parser.set_usage(main.__doc__)
+
+  runtime = optparse.OptionGroup(parser, "-- RUNTIME ARGUMENTS")
+  parser.add_option_group(runtime)
+  # -------------------------------------------------------------------------
+  # variable setting
+  vars = optparse.OptionGroup(parser, "-- CONFIGURATION SETTINGS")
+  parser.add_option_group(vars)
+  # ----------------------------
+  dbgroup = optparse.OptionGroup(parser, "-- DEBUG")
+  dbgroup.add_option("-D", "--debug", action="store_true",
+           default=False, dest='debug',
+           help="Enable debugging")
+
+  dbgroup.add_option("-V", "--verbose", action="store_true",
+           default=False, dest='verbose',
+           help="Be more Verbose (make lots of noise)")
+
+  dbgroup.add_option("-v", "--version", action="store_true",
+           default=False, dest='version',
+           help="Display Version")
+
+  parser.add_option_group(dbgroup)
+  # ----------------------------
+
+  (opts, args) = parser.parse_args()
+  log = PyTis.set_logging(opts, 'pyrotate')
+
+  old_version = opts.version
+  opts.version = True
+  log = PyTis.set_logging(opts, os.path.basename(sys.argv[0]))
+  
+  opts.version = old_version
+
+  if opts.version: return PyTis.version(__version__)
+
+  for arg in args:
+    if not os.path.isfile(arg) or not os.path.exists(arg):
+      errors.append("%s doesn't appear to be a valid file." % arg)
+
+  if len(args) == 0 and not errors:
+    return parser.print_usage()
+  elif not errors:
+    try:
+      run(opts, args)
+    except KeyboardInterrupt as e:
+      log.debug("Keyboard-Interrupt, bye!")
+      if not opts.quiet:
+        log.info("\nbye!")
+      return
+    else:
+      log.info("Done.")
+      return
+  else:
+    parser.print_usage()
+    #if errors:
+    #   log.error(str("\n".join(errors)))
+    return parser.print_help(errors)
+
+  parser.print_help("ERROR: Unknown, but invalid input.")
+  sys.exit(0)
+
+if __name__ == '__main__':
+    main()
+

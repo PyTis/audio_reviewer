@@ -3,255 +3,43 @@
 
 import os, sys
 from datetime import datetime
+from pprint import pprint, pformat
 
 from ConfigParser import ConfigParser as CP
+
+from gui.log_frame import LogFrame
+from gui.project_dlg import ProjectDialog
+from gui.media_panel import MediaPanel
+from gui.panel import LeftPane, RightPane, CenterPane, BottomPane
+
+from images import getMyIconIcon, getDarkPiSymbolIcon
 
 from lib import mbool
 from lib import settings
 from lib.project import Project
-from images import getDarkPiSymbolIcon, getBevelGearIcon
-from panel import MediaPanel, LogPanel
-from panel import LeftPane, RightPane, CenterPane, BottomPane
 from lib import config_file_path, config_dir
-from lib.log import set_logging
+from lib.log import log
 from lib.util import prettyNow
 from lib.settings import _program_name
 
 import wx
 from wx.lib.splitter import MultiSplitterWindow
-import wx.aui
-
-class LogFrame(wx.Frame):
-
-  def __init__(self, parent, title, pos=(-1,-1), size=(1000,600),
-    style=wx.DEFAULT_FRAME_STYLE):
-#    style=wx.MINIMIZE_BOX | wx.CLOSE_BOX | wx.MAXIMIZE_BOX | wx.SYSTEM_MENU | wx.CAPTION | wx.DOUBLE_BORDER):
-    global log
-    self.log = log
-    wx.Frame.__init__(self, parent, -1, title, pos, size, style)
-    self.parent = parent
-
-    self.SetBackgroundColour('#FFFFFF')
-
-    self.LogPanel=LogPanel(parent=self, frame=self, size=(1000, 600),
-      style=style)
-    self.log.info("Starting %s at %s" % (_program_name, prettyNow()) ) 
-
-    self.createMenu()
-
-  def createMenu(self):
-    menu_bar = wx.MenuBar()
-    
-    #----------------------------------------------------------------------
-    options_menu = wx.Menu()
-    
-    self.debugid = wx.NewId()
-    self.infoid0 = wx.NewId()
-    self.infoid1 = wx.NewId()
-    self.infoid2 = wx.NewId()
-    self.infoid3 = wx.NewId()
-    self.infoid4 = wx.NewId()
-    self.warn_id = wx.NewId()
-    self.erro_id = wx.NewId()
-    self.crit_id = wx.NewId()
-
-    self.debug_item   =options_menu.Append(self.debugid,"&Debug\tCTRL+0",
-      "Show more verbosity (include debug messages).", wx.ITEM_RADIO) #
-    self.info4_item   =options_menu.Append(self.infoid4,"&Noisy (+++)\tCTRL+1",
-      "Info 4 >=", wx.ITEM_RADIO) #
-    self.info3_item   =options_menu.Append(self.infoid3,"Verbose (&++)\tCTRL+2",
-      "Info 3 >=", wx.ITEM_RADIO) #
-    self.info2_item   =options_menu.Append(self.infoid2,"&More Verbose (+)\tCTRL+3",
-      "Info 2 >=", wx.ITEM_RADIO) #
-    self.info1_item   =options_menu.Append(self.infoid1,"&Verbose\tCTRL+4", 
-      "Info 1 >=", wx.ITEM_RADIO) #
-    self.info_item    =options_menu.Append(self.infoid0,"&Quiet\tCTRL+5", 
-      "Info >=", wx.ITEM_RADIO) #
-    self.warn_item    =options_menu.Append(self.warn_id,"&Warning\tCTRL+6",
-      "Warning >=", wx.ITEM_RADIO) #
-    self.error_item   =options_menu.Append(self.erro_id,"&Error\tCTRL+7", 
-      "Error >=", wx.ITEM_RADIO) #
-    self.critical_item=options_menu.Append(self.crit_id,"&Critical && Failure\tCTRL+8",
-      "Critical \& Failure >=", wx.ITEM_RADIO) #
-
-    options_menu.AppendSeparator()
-
-    """
-    self.show_timestamp_item = options_menu.Append(wx.NewId(),
-      "&Timestamps",
-      "Show / Hide Timestamps", wx.ITEM_CHECK) #
-
-    options_menu.AppendSeparator()
-    """
-
-    self.close_item=options_menu.Append(wx.NewId(),
-      "&Close/Hide Window\tCTRL+D", "Hide Debugging Window") #
-
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.debug_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.info4_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.info3_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.info2_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.info1_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.info_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.warn_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.error_item)
-    self.Bind(wx.EVT_MENU, self.onToggleDebug, self.critical_item)
-
-    #self.Bind(wx.EVT_MENU, self.onToggleTimestamp, self.show_timestamp_item)
-
-    self.Bind(wx.EVT_MENU, self.OnHideNow, self.close_item)
-
-    self.Bind(wx.EVT_CLOSE, self.OnClose, self)
-
-# init__(self, Menu parentMenu=None, int id=ID_SEPARATOR, String text=EmptyString, |          String help=EmptyString, int kind=ITEM_NORMAL, |          Menu subMenu=None) -> MenuItem
-
-    dump_menu = wx.Menu()
-
-    self.dump_item = dump_menu.Append(wx.NewId(), '&Print "%s" to screen.' \
-      % os.path.basename(config_file_path()), "Dump Config")
-
-    self.Bind(wx.EVT_MENU, self.OnPrintConfig, self.dump_item)
-
-#    self.debug_item.Toggle()
-
-    menu_bar.Append(options_menu, '&Log Level') #, "Debbugin / Verbosity Level (-d -vvvv)")
-
-    menu_bar.Append(dump_menu, '&Options') #, "Debbugin / Verbosity Level (-d -vvvv)")
-
-#    self.Bind(wx.EVT_MENU, self.onFutureFeature, show_stuff)
-
-    #----------------------------------------------------------------------
-    self.SetMenuBar(menu_bar)
-
-  ##################################################################
-  def OnPrintConfig(self, evt):
-    global log
-    evt.Skip()
-
-    # wx.LogMessage('PRINTING CONFIG FILE "%s" to LOG' % config_file_path())
-    wx.LogMessage("")
-    log.addSeperator('PRINTING CONFIG FILE "%s" to LOG' % config_file_path())
-
-    log.addSeperator()
-    h = open(config_file_path(), 'r')
-    for line in h.readlines(-1):
-      log.addSeperator(str(line).strip())
-    h.close()
-    log.addSeperator()
-
-  def futureFeature(self, text='This feature is not yet implemented.'):
-    global log
-    log.info1('test', 'tst2')
-    log.warn('test WARN test', 'tsWARNINGt2')
-    return self.showError('Comming Soon,..', text, wx.ICON_INFORMATION)
-
-  def onToggleDebug(self, evt):
-    """
-      3 points
-      logging
-      CONFIG
-      checkbox save in config ?
-      tell logging
-
-      0 : 'ALL',
-      10 : 'debug',
-      20 : 'info',
-      30 : 'warn',
-      40 : 'error',
-      50 : 'critcial'
-    """
-    global log
-
-    id = evt.GetId()
-    if id == self.debugid:
-      self.CONFIG['debug_level'] = 'debug'
-      self.CONFIG.save()
-      self.log.verbosity = 5
-      self.log.setLevel(10)
-
-    elif id == self.infoid4:
-      self.CONFIG['debug_level'] = 'info4'
-      self.CONFIG.save()
-      self.log.verbosity = 4
-      self.log.setLevel(20)
-
-    elif id == self.infoid3:
-      self.CONFIG['debug_level'] = 'info3'
-      self.CONFIG.save()
-      self.log.verbosity = 3
-      self.log.setLevel(22)
-
-    elif id == self.infoid2:
-      self.CONFIG['debug_level'] = 'info2'
-      self.CONFIG.save()
-      self.log.verbosity = 2
-      self.log.setLevel(24)
-
-    elif id == self.infoid1:
-      self.CONFIG['debug_level'] = 'info1'
-      self.CONFIG.save()
-      self.log.verbosity = 1 
-      self.log.setLevel(26)
-
-    elif id == self.infoid0:
-      self.CONFIG['debug_level'] = 'info'
-      self.CONFIG.save()
-      self.log.verbosity = 1 
-      self.log.setLevel(28)
-
-    elif id == self.warn_id:
-      self.CONFIG['debug_level'] = 'warn'
-      self.CONFIG.save()
-      self.log.verbosity = 0
-      self.log.setLevel(30)
-
-    elif id == self.erro_id:
-      self.CONFIG['debug_level'] = 'error'
-      self.CONFIG.save()
-      self.log.verbosity = 0
-      self.log.setLevel(40)
-
-    elif id == self.crit_id:
-      self.CONFIG['debug_level'] = 'critical'
-      self.CONFIG.save()
-      self.log.verbosity = 0
-      self.log.setLevel(50)
-
-    log.info("self.CONFIG['debug_level'] %s" % self.CONFIG['debug_level'])
-  
-  """
-  def onToggleTimestamp(self, evt):
-    global log
-
-    if self.show_timestamp_item.IsChecked():
-      log.use_timestamps = self.CONFIG['logging__show_timestamps'] = True
-      self.CONFIG.save()
-    else:
-      log.use_timestamps = self.CONFIG['logging__show_timestamps'] = False
-      self.CONFIG.save()
-  """
-
-  def OnHideNow(self, evt):
-#    print("CALLED")
-#    wx.LogMessage("\n")
-#    self.parent.onToggleDebugFrame(evt)
-    return self.OnClose(evt)
-
-  def OnClose(self, evt):
-    wx.LogMessage("\n")
-    self.parent.onToggleDebugFrame(evt)
 
 class MainFrame(wx.Frame):
   first_run = True
   _project = Project()
 
-  def OnClose(self, evt):
-    self.log.info("Stopping %s at %s" % (_program_name,prettyNow())) 
-#    self.LogFrame.Close()
-    self.CONFIG.save()
+  wildcard = "Audio Files (*.midi, *.m4a, *.mp3, *.wav, *.wma)|" \
+    "*.midi; *.m4a; *.mp3; *.wav; *.wma|" \
+    "M4A (*.m4a)|*.m4a|" \
+    "MP3 (*.mp3)|*.mp3|" \
+    "WAV (*.wav)|*.wav" \
+    "|WMA (*.wma)|*.wma"
 
-    evt.Skip()
-  
+  acceptable_extensions = ['.midi', '.m4a', '.mp3', '.wav', '.wma']
+
+  default_audio_import_directory = os.getcwd()
+
   def set_project(self, obj):
     self._project=obj
   def get_project(self):
@@ -264,11 +52,11 @@ class MainFrame(wx.Frame):
 
   @property
   def project_name(self):
-    return self.Project.get('pname', None)
+    return self.Project.name
 
   @property
   def project_path(self):
-    return self.Project.get('path', None)
+    return self.Project.path
 
   def __init__(self, parent, title, pos=(-1,-1), size=(1000,600),
     style=wx.DEFAULT_FRAME_STYLE):
@@ -276,20 +64,19 @@ class MainFrame(wx.Frame):
     global log
 
     wx.Frame.__init__(self, parent, -1, title, pos, size, style)
+
     self.parent = parent
 
     self.Bind(wx.EVT_CLOSE, self.OnClose, self)
 
     log = self.setLogging()
 
-#    self.LogFrame.Show(True)
-#    self._options_frame = OptionsFrame(self)
-
     self.SetBackgroundColour('#FFFFFF')
 #    self.Maximize()
 
     try:
-      self.SetIcon(getDarkPiSymbolIcon())
+      #self.SetIcon(getDarkPiSymbolIcon())
+      self.SetIcon(getMyIconIcon())
     finally:
       pass
 
@@ -318,11 +105,11 @@ class MainFrame(wx.Frame):
     self.cp = CenterPane(self.vsplitter, self, log, size=(440, 450), style=sty)
     self.cp.Show(True)
     self.vsplitter.AppendWindow(self.cp, 440)
-    self.cp.SetOtherLabel("Text Editor")
     self.cp.SetMinSize(self.cp.GetBestSize())
 
     self.rp = RightPane(self.vsplitter, self, log, size=(180, 450), style=sty)
     self.rp.Show(True)
+    self.rp.MaxSize = (200,2880)
     self.rp.SetOtherLabel("Bookmark View")
     self.vsplitter.AppendWindow(self.rp, 180)
 
@@ -345,11 +132,49 @@ class MainFrame(wx.Frame):
     self.statusBar.SetStatusText(statusText, 0)
 
     self.createMenu()
+    self.loadConfig()
+    self.Bind(wx.EVT_SIZE, self.OnResize, self)
     '''
     self.Bind(wx.EVT_SIZE, self.onFutureFeature, self)
 #    self.Bind(wx.EVT_SIZE, self.onFutureFeature, self)
     '''
-  
+    self.disableProjectMenus()
+
+    sp = wx.StandardPaths.Get()
+    log = self.log
+    log.debug("GetAppDocumentsDir: %s" % sp.GetAppDocumentsDir() )
+    log.debug("GetDataDir: %s" % sp.GetDataDir() )
+    log.debug("GetDocumentsDir: %s" % sp.GetDocumentsDir() )
+    log.debug("GetExecutablePath: %s" % sp.GetExecutablePath() )
+    log.debug("GetInstallPrefix: %s" % sp.GetInstallPrefix() )
+    log.debug("GetLocalDataDir: %s" % sp.GetLocalDataDir() )
+    log.debug("GetLocalizedResourcesDir: %s" % sp.GetLocalizedResourcesDir(lang='en') )
+    log.debug("GetPluginsDir: %s" % sp.GetPluginsDir() )
+    log.debug("GetResourcesDir: %s" % sp.GetResourcesDir() )
+    log.debug("GetTempDir: %s" % sp.GetTempDir() )
+    log.debug("GetUserConfigDir: %s" % sp.GetUserConfigDir() )
+    log.debug("GetUserDataDir: %s" % sp.GetUserDataDir() )
+    log.debug("GetUserLocalDataDir: %s" % sp.GetUserLocalDataDir() )
+    log.debug("UseAppInfo: %s" % sp.UseAppInfo(info=0) )
+    log.debug("UseAppInfo: %s" % sp.UseAppInfo(info=1) )
+    log.debug("UseAppInfo: %s" % sp.UseAppInfo(info=2) )
+    log.debug("UsesAppInfo: %s" % sp.UsesAppInfo(info=0) )
+    log.debug("UsesAppInfo: %s" % sp.UsesAppInfo(info=1) )
+    log.debug("UsesAppInfo: %s" % sp.UsesAppInfo(info=2) )
+    log.debug("AppInfo_AppName: %s" % sp.AppInfo_AppName )
+    log.debug("AppInfo_None: %s" % sp.AppInfo_None )
+    log.debug("AppInfo_VendorName: %s" % sp.AppInfo_VendorName )
+
+    self.default_audio_import_directory = str(sp.GetDocumentsDir()).replace(
+      'Documents', 'Music')
+
+    if 'Music' not in self.default_audio_import_directory:
+      self.default_audio_import_directory = os.getcwd()
+
+    self.log.debug('default_audio_import_directory: %s' % \
+      self.default_audio_import_directory)
+
+    self.currentFolder = sp.GetDocumentsDir()
   #----------------------------------------------------------------------
   def createMenu(self):
     """
@@ -358,44 +183,64 @@ class MainFrame(wx.Frame):
     menu_bar = wx.MenuBar()
     
     #----------------------------------------------------------------------
-    file_menu = wx.Menu()
-    open_file_menu_item = file_menu.Append(wx.NewId(), "&Open", "Open audio File")
-    self.Bind(wx.EVT_MENU, self.onBrowse, open_file_menu_item)
+    self.file_menu = wx.Menu()
+    self.open_file_menu_item = self.file_menu.Append(wx.NewId(), "&Open",
+      "Open audio File -- REMOVE LATER")
+    self.Bind(wx.EVT_MENU, self.onBrowse, self.open_file_menu_item)
 
-    new_project_menu_item = file_menu.Append(wx.NewId(), "&New Project\tCTRL+N",
+    self.new_project_menu_item = self.file_menu.Append(wx.NewId(), "&New Project\tCTRL+N",
       "Start a Project")
-    self.Bind(wx.EVT_MENU, self.onNewProject, new_project_menu_item)
+    self.Bind(wx.EVT_MENU, self.onNewProject, self.new_project_menu_item)
 
-    import_menu_item = file_menu.Append(wx.NewId(), "&Import Audio Files",
+    self.import_menu_item = self.file_menu.Append(wx.NewId(), "&Import Audio File(s)",
       "Import Audio Files")
-    self.Bind(wx.EVT_MENU, self.onFutureFeature, import_menu_item)
+    self.Bind(wx.EVT_MENU, self.onImportAudioFiles, self.import_menu_item)
 
-    settings_menu_item = file_menu.Append(wx.NewId(), "Project &Settings",
+    self.import_menu_item2 = self.file_menu.Append(wx.NewId(), "&Import Audio from Dir",
+      "Import Audio from Folder")
+    self.Bind(wx.EVT_MENU, self.onImportAudioFromFolder, self.import_menu_item2)
+
+    self.settings_menu_item = self.file_menu.Append(wx.NewId(), "Project &Settings",
       "Project Settings")
-    self.Bind(wx.EVT_MENU, self._on_options, settings_menu_item)
+    self.Bind(wx.EVT_MENU, self._on_options, self.settings_menu_item)
 
-    export_menu_item = file_menu.Append(wx.NewId(), "&Export",
+    self.export_menu_item = self.file_menu.Append(wx.NewId(), "&Export",
       "Export one thing")
-    self.Bind(wx.EVT_MENU, self.onFutureFeature, export_menu_item)
+    self.Bind(wx.EVT_MENU, self.onFutureFeature, self.export_menu_item)
 
-    export_all__menu_item = file_menu.Append(wx.NewId(), "&Export Full Report",
+    self.export_all__menu_item = self.file_menu.Append(wx.NewId(), "&Export Full Report",
       "Export Full Report Wizzard")
-    self.Bind(wx.EVT_MENU, self.onFutureFeature, export_all__menu_item)
+    self.Bind(wx.EVT_MENU, self.onFutureFeature, self.export_all__menu_item)
 
-    file_menu.AppendSeparator()
-    
-    for prj in self.CONFIG.get('last_projects', []):
+    self.file_menu.AppendSeparator()
+   
+    self.file_history = []
+    for i, prj in enumerate(self.CONFIG.get('last_projects', [])):
       name,path=prj.split('::')
-      menu_item = file_menu.Append(wx.NewId(), name, path)
-      self.Bind(wx.EVT_MENU, self.onOpenPastItem(name, path), menu_item)
+      if not name: name = 'N/A'
+      if not path: path = ''
 
-    file_menu.AppendSeparator()
-    exit__menu_item = file_menu.Append(wx.NewId(), "E&xit\tCTRL+Q",
+      menu_item = self.file_menu.Append(wx.NewId(), name, path)
+
+      # XXX-TODO
+      # this is too advanced for now, but the first item in history should
+      # be disabled, the trick is re-eneabling it as it becomes the second,
+      # and so on 
+      if i == 0 and False:
+        menu_item.Enable(False)
+      # always bind, because it could get shifted down, then it needs to be
+      # bound
+
+      self.Bind(wx.EVT_MENU, self.onOpenPastItem(name, path), menu_item)
+      self.file_history.append( (menu_item, name, path) )
+
+    self.file_menu.AppendSeparator()
+    exit__menu_item = self.file_menu.Append(wx.NewId(), "E&xit\tCTRL+Q",
       "Exit Program")
 
     self.Bind(wx.EVT_MENU, self.onClose, exit__menu_item)
 
-    menu_bar.Append(file_menu, '&File')
+    menu_bar.Append(self.file_menu, '&File')
     #----------------------------------------------------------------------
 
     options_menu = wx.Menu()
@@ -412,14 +257,12 @@ class MainFrame(wx.Frame):
     self.Bind(wx.EVT_MENU, self.onConvertAudioFiles, options_menu_item)
     menu_bar.Append(options_menu, '&Options')
 
-    #print(dir(self.debug_window_item))
     #----------------------------------------------------------------------
 
     self.SetMenuBar(menu_bar)
 
-    #debug_window_item.Toggle()
   ##################################################################
-  # New Project
+  # Project Management
 
   def newProject(self):
     # first get the name
@@ -431,8 +274,54 @@ class MainFrame(wx.Frame):
     return
     # now get a path
 
+  def closeProject(self):
+    self.disableProjectMenus()
+
+  def resetLastProject(self):
+    last_project = "%s::%s" % (self.CONFIG.project_name, 
+      self.CONFIG.project_path)
+
+    last_projects = self.CONFIG.get('last_projects', [])
+    if last_project in last_projects:
+      del last_projects[ last_projects.index(last_project) ]
+
+    last_projects.reverse()
+    last_projects.append( last_project )
+    last_projects.reverse()
+    self.CONFIG.last_projects=last_projects[:10]
+    self.CONFIG['last_projects'] = self.CONFIG.last_projects
+    self.CONFIG.save()
+
+  def setCurrentProject(self, name, path):
+    self.Project = Project(name, path)
+    self.CONFIG['project_path'] = self.project_path
+    self.CONFIG['project_name'] = self.project_name
+    self.CONFIG.save()
+
+
+
+  #def openProject(self, name=str_or_obj, path=str):
+  def openProject(self, name_or_prj='', path=''):
+    if str(type(name_or_prj)) == "<class 'lib.project.Project'>":
+      name = str(name_or_prj.name)
+      path = str(name_or_prj.path)
+    else:
+      name = name_or_prj
+
+    if str(name).strip() and path.strip():
+      self.log.info("open project running")
+      self.setCurrentProject(name, path)
+      self.lp.openProject(self.Project)
+      self.enableProjectMenus()
+      self.resetLastProject()
+      self.currentFolder = os.path.abspath(path)
+    else:
+      self.log.debug("could not open project. type of first input " \
+        "name_or_prj is: %s, and value is: %s" % ( str(type(name_or_prj)),
+        str(name_or_prj)))
+
   ##################################################################
-  # Actions
+  # DLGs
 
   def getProjectName(self):
     a='Project Name:'
@@ -451,28 +340,124 @@ class MainFrame(wx.Frame):
     return name
 
   def showError(self, err_name, err_msg, icon=wx.ICON_ERROR):
+    
     dlg = wx.MessageDialog(self, err_msg,
        err_name, wx.OK | icon
        )
     dlg.ShowModal()
     dlg.Destroy()
 
-  def openProject(self, name, path):
-    print('open past item')
-    print('name, ', name)
-    print('path, ', path)
-    test = '%s::%s' % (name, path)
-    p = Project(*test.split('::') )
-    print(p)
-    print(p.name)
+  ##################################################################
+  # 
+
 
   ##################################################################
-  # Events 
+  # Actions
+
+  def disableProjectMenus(self):
+    self.import_menu_item.Enable(False)
+    self.import_menu_item2.Enable(False)
+    self.settings_menu_item.Enable(False)
+    self.export_menu_item.Enable(False)
+    self.export_all__menu_item.Enable(False)
+
+  def enableProjectMenus(self):
+    self.import_menu_item.Enable(True)
+    self.import_menu_item2.Enable(True)
+    self.settings_menu_item.Enable(True)
+    self.export_menu_item.Enable(True)
+    self.export_all__menu_item.Enable(True)
+
+  def futureFeature(self, text='This feature is not yet implemented.'):
+    global log
+    log.info1('test tst2')
+    log.warn('test WARN test')
+    return self.showError('Comming Soon,..', text, wx.ICON_INFORMATION)
+
+  ##################################################################
+  # BEGIN EVENTS 
+
+  def onFutureFeature(self, evt):
+    evt.Skip()
+    wx.LogMessage("event dir:%s" % dir(evt))
+    wx.LogMessage("event type:%s" % type(evt))
+    wx.LogMessage("event repr:%s" % repr(evt))
+    wx.LogMessage("event str:%s" % str(evt))
+    return self.futureFeature()
 
   def onOpenPastItem(self, name, path):
-    def _onOpenPastItem(evt):
-      self.openProject(name, path)
-    return _onOpenPastItem
+
+    def onOpenPastItem_event(evt):
+      
+      new_pos = 0
+      for item in self.file_menu.GetMenuItems():
+        if item.GetId() == self.file_history[0][0].GetId():
+          break
+        new_pos += 1
+          
+      for i, item in enumerate(self.file_history):
+        item, iname, ipath = item
+        if item.GetId() == evt.GetId():
+          del self.file_history[i]
+          self.file_history.insert(0, (item, iname, ipath))
+          self.file_menu.DeleteItem(item)
+          
+          new_item = wx.MenuItem(self.file_menu, wx.NewId(), iname)
+          # XXX-TODO
+          # this is too advanced for now, but the first item in history should
+          # be disabled, the trick is re-eneabling it as it becomes the second,
+          # and so on 
+
+          # new_item.Enable(False)
+          self.file_menu.InsertItem(new_pos, new_item)
+          self.Bind(wx.EVT_MENU, self.onOpenPastItem(iname, ipath), new_item)
+
+      if str(path).strip():
+        tpath=os.path.abspath(path)
+      else:
+        self.showError("INVALID PATH",
+          "Invalid/Missing path for %s" % str(name))
+        return
+
+      if not str(name).strip():
+        self.showError("INVALID NAME",
+          "Invalid name for project: %s" % str(name))
+        return
+      if not os.path.exists(tpath):
+        self.showError("INVALID PATH",
+          "Missing or invalid path, it does not exist: %s" % str(tpath))
+        return
+      else:
+        self.log.info("open project being called from menu")
+        self.openProject(name, path)
+
+    return onOpenPastItem_event
+
+  def OnClose(self, evt):
+    old_mode = self.log.mode 
+    self.log.mode='file_only'
+    self.log.info("Stopping %s at %s" % (_program_name,prettyNow())) 
+    self.log.mode=old_mode
+#    self.LogFrame.Close()
+    self.CONFIG.save()
+
+    evt.Skip()
+
+  def OnResize(self, evt):
+    evt.Skip() 
+    lpw,lph = self.lp.GetSize()
+    cpw,cph = self.cp.GetSize()
+    rpw,rph = self.rp.GetSize()
+
+    myw, myh = self.GetSize()
+    new_width = myw-lpw-rpw
+    print('-'*80)
+    print("lpw:%s cpw:%s , rpw: %s" % (lpw, cpw, rpw))
+    print("myw: %s || myh:%s" % (myw, myh))
+    print('center panel widht should now be: %s' % new_width)
+    self.cp.SetSize((new_width,cph))
+
+    return evt
 
   def talkAboutEvent(self, evt, print_out=False):
     global log
@@ -507,19 +492,101 @@ class MainFrame(wx.Frame):
     log.info1 (" and now the level is : %s" % self.log.level)
     return self.futureFeature()
 
-  def onFutureFeature(self, evt):
+  def onImportAudioFromFolder(self, evt):
     evt.Skip()
-    wx.LogMessage("event dir:%s" % dir(evt))
-    wx.LogMessage("event type:%s" % type(evt))
-    wx.LogMessage("event repr:%s" % repr(evt))
-    wx.LogMessage("event str:%s" % str(evt))
     return self.futureFeature()
 
-  def futureFeature(self, text='This feature is not yet implemented.'):
+  def importAudioFiles(self, paths):
     global log
-    log.info1('test', 'tst2')
-    log.warn('test WARN test')
-    return self.showError('Comming Soon,..', text, wx.ICON_INFORMATION)
+    log.info('test')
+    print("I will imnport paths", paths)
+
+  def onImportAudioFiles(self, evt):
+    paths = None
+
+    # self.log.WriteText("CWD: %s\n" % os.getcwd())
+    # Create the dialog. In this case the current directory is forced as the starting
+    # directory for the dialog, and no default file name is forced. This can easilly
+    # be changed in your program. This is an 'open' dialog, and allows multitple
+    # file selections as well.
+    #
+    # Finally, if the directory is changed in the process of getting files, this
+    # dialog is set up to change the current working directory to the path chosen.
+
+    dlg = wx.FileDialog(
+      self, message="Choose a file or files",
+      defaultDir=self.default_audio_import_directory, 
+      defaultFile="",
+      wildcard=self.wildcard,
+      style=wx.OPEN | wx.MULTIPLE | wx.CHANGE_DIR
+    )
+
+    # Show the dialog and retrieve the user response. If it is the OK response, 
+    # process the data.
+    if dlg.ShowModal() == wx.ID_OK:
+      # This returns a Python list of files that were selected.
+      paths = dlg.GetPaths()
+
+      self.log.WriteText('You selected %d files:' % len(paths))
+
+      for path in paths: self.log.debug('       %s\n' % path)
+
+      self.importAudioFiles(paths)
+
+      self.default_audio_import_directory = os.getcwd()
+
+    # Compare this with the debug above; did we change working dirs?
+#    self.log.WriteText("CWD: %s\n" % os.getcwd())
+
+    # Destroy the dialog. Don't do this until you are done with it!
+    # BAD things can happen otherwise!
+
+    dlg.Destroy()
+
+  def onToggleDebugFrame(self, event):
+    global log
+    if self.LogFrame.IsShown():
+      self.LogFrame.Hide()
+      if self.debug_window_item.IsChecked():
+        self.CONFIG['show_debug_frame'] = False
+        self.CONFIG.save()
+        self.debug_window_item.Toggle()
+    else:
+      self.CONFIG['show_debug_frame'] = True
+      self.CONFIG.save()
+      self.LogFrame.Show()
+      self.debug_window_item.Check()
+  
+  #----------------------------------------------------------------------
+  def onNewProject(self, evt):
+    return self.newProject()
+
+  def onBrowse(self, event):
+    """
+    Opens file dialog to browse for music
+    """
+
+    dlg = wx.FileDialog(
+      self, message="Choose a file",
+      defaultDir=self.currentFolder, 
+      defaultFile="",
+      wildcard=self.wildcard,
+      style=wx.OPEN | wx.CHANGE_DIR
+      )
+    if dlg.ShowModal() == wx.ID_OK:
+      path = dlg.GetPath()
+      self.currentFolder = os.path.dirname(path)
+      self.loadMusic(path)
+    dlg.Destroy()
+
+  def onClose(self, evt):
+    # what do we need to close down, write, save first?
+    # :XXX-TODO
+    self.LogFrame.Close()
+    self.Close()
+
+  # END EVENTS 
+  ##################################################################
 
   def loadPane(self, obj, *args, **kwargs):
     x = obj(self, *args, **kwargs)
@@ -543,78 +610,50 @@ class MainFrame(wx.Frame):
             
     return _(hideObj,showObj)
 
-  def onToggleDebugFrame(self, event):
-    global log
-    if self.LogFrame.IsShown():
-      self.LogFrame.Hide()
-      if self.debug_window_item.IsChecked():
-        self.CONFIG['show_debug_frame'] = False
-        self.CONFIG.save()
-        self.debug_window_item.Toggle()
-    else:
-      self.CONFIG['show_debug_frame'] = True
-      self.CONFIG.save()
-      self.LogFrame.Show()
-      self.debug_window_item.Check()
-
-  
-  #----------------------------------------------------------------------
-  def onNewProject(self, evt):
-    return self.newProject()
-
-  def onBrowse(self, event):
-    """
-    Opens file dialog to browse for music
-    """
-    wildcard = "Audio Files (*.midi, *.mp3, *.wav, *.wma)|*.midi; *.mp3; *.wav; *.wma|" \
-      "MP3 (*.mp3)|*.mp3|WAV (*.wav)|*.wav|WMA (*.wma)|*.wma"
-
-    dlg = wx.FileDialog(
-      self, message="Choose a file",
-      defaultDir=self.currentFolder, 
-      defaultFile="",
-      wildcard=wildcard,
-      style=wx.OPEN | wx.CHANGE_DIR
-      )
-    if dlg.ShowModal() == wx.ID_OK:
-      path = dlg.GetPath()
-      self.currentFolder = os.path.dirname(path)
-      self.loadMusic(path)
-    dlg.Destroy()
-
-  def onClose(self, evt):
-    # what do we need to close down, write, save first?
-    # :XXX-TODO
-    self.LogFrame.Close()
-    self.Close()
-
   def loadProject(self):
-    self.Project = Project(pname=self.CONFIG.project_name,
+    self.Project = Project(name=self.CONFIG.project_name,
       path=self.CONFIG.project_path)
-
     self.Project.load()
 
   def setTitle(self, project_name=''):
     self.SetTitle("Audio Reviewer - %s :: 2020-%s (c) " \
       "PyTis, LLC." % (project_name, str(datetime.now().year)) )
 
-  def onImportAudio(self, evt):
-    pass
 
+  def testLog(self):
+    global log
+    log.debug('debug CONFIG.verbosity: %s' % self.CONFIG.verbosity)
+    log.info4('verbose +++')
+    log.info3('verbose ++')
+    log.info2('verbose +')
+    log.info1('verbose')
+    log.info('quiet')
+    log.warn('CONFIG.verbosity: %s' % self.CONFIG.verbosity)
+    log.error('This is an ERROR')
+#    log.critical('CRITICAL ERROR')
+  
   def setLogging(self):
     global log
-    self.debug  = self.CONFIG.get('debug', False)
-    log = set_logging(_program_name, self.debug)
+    # XXX-TODO, add a feature to my logger to do this for me, print to log, or
+    # our logging window only, but not actually printing to STDOUT
+
     self.log = log
-    self.LogFrame = LogFrame(self, "Debug Log")
-    self.LogFrame.CONFIG=self.CONFIG
+    #self.log.mode='file_only'
+    old_mode = self.log.mode 
+    self.log.mode='screen_only'
+    self.log.info("Starting %s at %s" % (_program_name, prettyNow()) ) 
+    self.log.mode=old_mode
+#    self.testLog()
+
+
+    self.LogFrame = LogFrame(self, log, "Debug Log")
     return log
 
 
   def checkSetup(self):
+    global log
     self.Project.name = self.CONFIG.project_name
     self.Project.path = os.path.abspath(self.CONFIG.project_path)
-
 
     if not os.path.isdir(self.Project.path) or not \
       os.path.exists(self.Project.path):
@@ -623,26 +662,22 @@ class MainFrame(wx.Frame):
         self.Project.path)
       self.newProject()
 
-    elif self.Project.get('name', None) is None:
+    elif self.Project.name is None:
       self.newProject()
-    
-    self.setTitle(self.project_name)
+    else:
+      self.log.info("open project called from checkSetup")
+      self.openProject(self.Project)
+      self.setTitle(self.project_name)
+
+  def loadConfig(self):
     show_debug_frame = mbool(self.CONFIG.get('show_debug_frame',''))
-    print("TYPE OF show_debug_frame: %s" % str( type(show_debug_frame)))
-    print("VALUE OF show_debug_frame: %s" % str( show_debug_frame))
+    log.debug("TYPE OF show_debug_frame: %s" % str( type(show_debug_frame)))
+    log.debug("VALUE OF show_debug_frame: %s" % str( show_debug_frame))
 
     if show_debug_frame:
       self.LogFrame.Show()
       self.debug_window_item.Check()
 
-    if mbool(self.CONFIG.get('debug','')):
-      self.LogFrame.debug_item.Toggle()
-      self.log.verbosity = 5
-      self.log.setLevel(10)
-    else:
-      self.log.verbosity = 1
-      self.log.setLevel(30)
-    
     dblvl = self.CONFIG.get('debug_level', '')
     if dblvl == 'debug':
       self.LogFrame.debug_item.Check()
@@ -697,8 +732,6 @@ class MainFrame(wx.Frame):
       self.log.setLevel(28)
 
 
-
-
   def _on_options(self, event):
     """Event handler of the self._options_btn widget.
 
@@ -708,158 +741,5 @@ class MainFrame(wx.Frame):
     """
     self._options_frame.load_all_options()
     self._options_frame.Show()
-
-
-class ProjectDialog(wx.Dialog):
-  
-  def __init__(self, parent, title='New Project Wizard', pos=(-1,-1), size=(700,400),
-    style=wx.DEFAULT_FRAME_STYLE|wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_CENTER):
-#    style=wx.MINIMIZE_BOX | wx.CLOSE_BOX | wx.MAXIMIZE_BOX | wx.SYSTEM_MENU | wx.CAPTION | wx.DOUBLE_BORDER):
-
-    self.frame = parent
-    wx.Dialog.__init__(self, parent, -1, title, pos, size, style)
-    self.SetBackgroundColour('#E5E5E5')
-
-    self.CONFIG = self.frame.CONFIG
-
-    font = wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.NORMAL)
-    title = wx.StaticText(self, -1, "Step 1: Setup Project")
-    title.SetFont(font)
-    
-    chars = 440
-    l1 = wx.StaticText(self, -1, "Project Name:", style=wx.ALIGN_RIGHT)
-    self.project_nameTC = wx.TextCtrl(self, -1, "see", size=(chars, -1))
-
-    l2 = wx.StaticText(self, -1, "Project Path:", style=wx.ALIGN_RIGHT)
-    self.project_pathTC=wx.TextCtrl(self,-1,"Empty Directory",size=(chars,-1))
-    self.project_pathTC.Disable()
-
-    select_button = wx.Button(self, 20, "&SELECT", (20, 80)) 
-#   select_button.SetDefault()
-    select_button.SetSize(select_button.GetBestSize())
-    self.Bind(wx.EVT_BUTTON, self.onSelectDir, select_button)
-
-    select_button.SetToolTipString("Select the Directory to store your project in.")
-
-    space = 6
-
-    sizer = wx.FlexGridSizer(cols=3, hgap=space, vgap=space)
-    sizer.AddMany([ l1, self.project_nameTC, (0,0),
-                    l2, self.project_pathTC, select_button
-                    ])
-    border = wx.BoxSizer(wx.VERTICAL)
-    border.Add(title, 0, wx.ALL, 25)
-    border.Add(sizer, 0, wx.ALL, 25)
-    self.SetSizer(border)
-    self.SetAutoLayout(True)
-
-    '''
-    import_box = wx.StaticBox(self, -1, "Audio Files", size=(625, 120),
-      pos=(25, 160) )
-
-    bsizer = wx.StaticBoxSizer(import_box, wx.VERTICAL)
-
-    import_check = wx.CheckBox(self, -1, "Import")
-
-    # item, int proportion=0, int flag=0, int border=0,
-    bsizer.Add(import_check, 0, wx.TOP|wx.LEFT, 10)
-    '''
-
-    self.build_button = wx.Button(self, -1, "Build", (460, 310) )
-    self.build_button.SetSize(self.build_button.GetBestSize())
-    self.Bind(wx.EVT_BUTTON, self.onSave, self.build_button)
-
-    self.cancel_button = wx.Button(self, -1, "Cancel", (560, 310) )
-    self.cancel_button.SetSize(self.cancel_button.GetBestSize())
-    self.Bind(wx.EVT_BUTTON, self.onCancel, self.cancel_button)
-
-  def onSave(self, evt):
-    name = self.project_nameTC.GetValue()
-    path = self.project_pathTC.GetValue()
-
-    print('onSave called, self.project_nameTC.GetValue() is: %s' % \
-      name)
-
-    self.CONFIG.project_name = name
-    print('now in CONFIG, value is: %s' % self.CONFIG.project_name)
-    self.CONFIG.project_path = path
-
-    print('passsing into Project __init__ :%s' % self.CONFIG.project_name)
-
-    project = Project(pname=self.CONFIG.project_name,
-      path=self.CONFIG.project_path)
-
-    project.create()
-
-    self.frame.loadProject()
-
-    last_project = "%s::%s" % (self.CONFIG.project_name, self.CONFIG.project_path)
-    last_projects = self.CONFIG.get('last_projects', [])
-    if last_project in last_projects:
-      del last_projects[ last_projects.index(last_project) ]
-
-    last_projects.reverse()
-    last_projects.append( last_project )
-    last_projects.reverse()
-
-    self.CONFIG.last_projects=last_projects[:10]
-    self.CONFIG['last_projects'] = self.CONFIG.last_projects
-
-    self.CONFIG.save()
-
-    self.frame.setTitle(name)
-
-    self.Close()
-    return wx.ID_OK
-
-  def onCancel(self, evt):
-    self.Close()
-    return wx.ID_CANCEL
-
-  def onSelectDir(self, evt):
-    name = ''
-    # In this case we include a "New directory" button. 
-    dlg = wx.DirDialog(self, "Choose a directory:",
-              style=wx.DD_DEFAULT_STYLE#| wx.DD_DIR_MUST_EXIST
-               #| wx.DD_CHANGE_DIR
-    )
-
-    # If the user selects OK, then we process the dialog's data.
-    # This is done by getting the path data from the dialog - BEFORE
-    # we destroy it. 
-    if dlg.ShowModal() == wx.ID_OK:
-      path = os.path.abspath( dlg.GetPath() )
-
-      if not os.path.exists(path):
-        self.showError('Missing Directory', \
-          "This directory does not exist: \n%s" % path)
-      else:
-        if self.isEmpty(path):
-          self.project_pathTC.Enable()
-          self.project_pathTC.SetValue(path)
-          self.project_pathTC.Disable()
-        else:
-          self.showProjectNotEmptyError(path)
-          return self.onSelectDir(evt)
-
-    # Only destroy a dialog after you're done with it.
-    dlg.Destroy()
-      
-  def isEmpty(self, directory):
-    import glob
-    retval = True
-    for root, dirs, files in os.walk(os.path.abspath(directory),topdown=False):
-      if len(dirs) or len(files):
-        retval = False
-
-    return retval
-
-  def showProjectNotEmptyError(self, path):
-    dlg = wx.MessageDialog(self, "%s is not EMPTY.\n" \
-      'You selected a folder with files or ' \
-      'folders in it.  You must SELECT or CREATE an EMPTY folder.' % path,
-       'Please try again,...', wx.OK | wx.ICON_WARNING)
-    dlg.ShowModal()
-    dlg.Destroy()
 
 

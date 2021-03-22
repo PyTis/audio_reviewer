@@ -2156,5 +2156,6 @@ def load(fname, write=False):
 
     if not os.path.isfile(fname) or not os.path.exists(fname):
         raise OSError("File not found: %s" % fname)
+
     return ConfigObj(fname)
 

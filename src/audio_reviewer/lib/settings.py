@@ -11,15 +11,26 @@ __all__ = ['DEFAULT_OPTIONS',
 DEFAULT_OPTIONS = dict(
   project_name=None,
   project_path=None,
-  last_projects=[]
+  last_projects=[],
+  show_debug_frame = False,
+  debug_level = 'debug',
+  verbosity=0
 )
 
 _program_foundation = 'PyTis'
 _program_base = 'AudioReviewer'
-_program_name = \
-  os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_program_name = 'audio_reviewer'
 
-#print('PROGRAM_NAME IS : %s' % _program_name)
+# _program_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# /home/jlee/github/audio_reviewer/src/audio_reviewer/lib/settings.ini
+# __file__ = settings.ini
+# abspath(__file__) = /home/jlee/github/audio_reviewer/src/audio_reviewer/lib/settings.ini
+# dirname(__file__) = ../src/audio_reviewer/lib/
+# dirname(lib) = /home/jlee/github/audio_reviewer/src/audio_reviewer/
+# basename = audio_reviewer
+# thus, audio_reviewer, why not just hard code this?  why all of the
+# basename(dirname(dirname(abspath( bullshit? I guess sometimes when you code
+# until 6am, it can show.
 
 def add_os_touch():
   if not getattr(os,'touch',None):

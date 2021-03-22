@@ -22,7 +22,7 @@ from lib import errors
 from .settings import homedir, is_root, config_dir, config_file_path
 import settings
 
-__all__ = ['config_file_path', 'python_version', 'errors', 'mbool']
+__all__ = ['config_dir','config_file_path','errors','mbool','python_version']
 
 def add_os_touch():
   if not getattr(os,'touch',None):

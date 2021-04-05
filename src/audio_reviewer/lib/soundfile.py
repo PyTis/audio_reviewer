@@ -30,7 +30,14 @@ except KeyboardInterrupt as e:
 
 # builtin
 import os
+import hashlib
 import subprocess
+import shutil
+
+try:
+  assert PermissionError
+except NameError:
+  class PermissionError (Exception): pass
 
 # Internal
 
@@ -103,7 +110,7 @@ class SoundFile(object):
     self._md5 = None
     self._file_name=None
     self._name=None
-    self._dir_name=None
+    self._folder=None
     self._dirname=None
     self._base_name=None
     self.current_state=None
@@ -126,7 +133,6 @@ class SoundFile(object):
     vpath = os.path.join(vlc_base, self.file_path[1:])
     
 #    PyTis.clearScreen()
-#    print('vpath=', vpath)
 #    PyTis.toContinue()
     try:
       float(speed)
@@ -149,11 +155,6 @@ class SoundFile(object):
   #  return os.path.basename(os.path.dirname(self.fpath))
 
   @property
-  def full_path(self):
-    return self.file_path
-  fpath=filepath=full_path
-
-  @property
   def folder(self):
     if not self._folder:
       self._folder = os.path.basename(os.path.dirname(self.file_path))
@@ -171,15 +172,21 @@ class SoundFile(object):
     if not self._name:
       self._name = os.path.basename(self.base_name).split('.')[0]
     return self._name
+
+  @property
+  def filepath(self):
+    return self.file_path
+  fpath=filepath
   
   @property
-  def file_name(self):
+  def filename(self):
     '''
     # basename with lowered file extension
     '''
     if not self._file_name:
       self._file_name = "%s.%s" % (self.name, self.extension.lower())
     return self._file_name
+  fname=filename 
 
   @property
   def base_name(self):
@@ -191,7 +198,7 @@ class SoundFile(object):
   def md5(self):
     if not self._md5:
       x = open(self.file_path,'rb')
-      self._md5 = BUILD.md5_for_file(x)
+      self._md5 = md5_for_file(x)
       x.close()
     return self._md5
 
@@ -207,6 +214,33 @@ class SoundFile(object):
   @property
   def ext(self):
     return ".%s" % self.extension
+
+  def moveFile(self, new_dir):
+    #print('soundFile.moveFile called')
+    try:
+      old = self.fpath
+      new = os.path.join(new_dir, self.filename)
+      new = os.path.abspath(new)
+
+      if os.path.exists(new):
+        new = safe_fname(new)
+
+      if os.path.exists(new):
+        raise Exception("Cannot find a safe name for %s to place in %s" % \
+          (self.filename, new_dir) )
+
+      shutil.move(old, new)
+
+    except IOError:
+      raise
+    except OSError:
+      raise
+    except PermissionError:
+      raise
+    else:
+      return new
+
+
 # -----------------------------------------------------------------------------
 # End Class Helpers
 # =============================================================================
@@ -214,6 +248,36 @@ class SoundFile(object):
 # Begin HELPER Functions
 # -----------------------------------------------------------------------------
 
+def safe_fname(fpath, i=None):
+  """ Find a safe new destination filename for a file about to be moved,
+  ensuring that an existing file isn't moved over.
+  Now, this appears to work, though I think the UPPER and LOWER may affect
+  directories too, and I need to check that.
+  """
+  test_fpath = fpath
+
+  if not os.path.exists(test_fpath):
+    return test_fpath
+  else:
+    if not i:
+      i = 1
+    else:
+      i=i+1
+    fname = os.path.basename(fpath)
+    bag = os.path.splitext(fname)
+    testname = "%s_%s%s" % (bag[0],i,bag[1])
+
+    newfile = os.path.abspath(os.path.join(os.path.dirname(fpath), testname))
+
+    if not os.path.exists(newfile):
+      if i is not None:
+        print("%s already existed in the outdir, added _%s to the end " \
+          "of the filename." % (fname,i))
+#        log.warn("%s already existed in the outdir, added _%s to the end " \
+#          "of the filename." % (fname,i))
+      return newfile
+    else:
+      return safe_fname(fpath,i)
 
 def md5_for_file(f, block_size=2**20):
   md5 = hashlib.md5()

@@ -2,11 +2,16 @@
 import os
 import configobj as COBJ
 
+acceptable_extensions = ['.midi', '.m4a', '.mp3', '.wav', '.wma']
+
 class NullDefault:
   pass
 
 class Project(object):
-  _dict=None
+  """
+
+  """
+  _cfile=None
   _name=None
   _path=None
   path = None
@@ -18,13 +23,21 @@ class Project(object):
     return self._folders
   folders=property(get_folders, set_folders)
 
-  """
-  def set_path(self,path):
-    self._path=path
-  def get_path(self):
-    return self._path
-  path=property(get_path, set_path)
-  """
+  @property
+  def keep(self):
+    return os.path.abspath(os.path.join(self.path, 'to-keep'))
+
+  @property
+  def review(self):
+    return os.path.abspath(os.path.join(self.path, 'to-review'))
+
+  @property
+  def remove(self):
+    return os.path.abspath(os.path.join(self.path, 'to-remove'))
+
+  @property
+  def other(self):
+    return os.path.abspath(os.path.join(self.path, 'to-other'))
 
   def set_name(self,name):
     self._name=name
@@ -32,11 +45,17 @@ class Project(object):
     return self._name
   name=property(get_name, set_name)
 
-  def set_dict(self,dict):
-    self._dict=dict
-  def get_dict(self):
-    return self._dict
-  dict=property(get_dict, set_dict)
+  def set_cfile(self,cfile):
+    self._cfile=cfile
+  def get_cfile(self):
+    return self._cfile
+  cfile=property(get_cfile, set_cfile)
+
+  def validate(self):
+    for folder in folders:
+      path = os.path.abspath(os.path.join(self.path, folder))
+      self.addFolder(folder, path)
+
 
 # --------------------------------------------------------------------------- #
 
@@ -45,11 +64,32 @@ class Project(object):
     if name: self.name=name
     if path: self.path=path
     
-    self.dict = COBJ.ConfigObj(self._config_file_path())
+    self.cfile = COBJ.ConfigObj(self._config_file_path())
 
-    if self.dict.get('name'): self.name=self.dict.get('name')
-    if self.dict.get('path'): self.path=self.dict.get('path')
-    if self.dict.get('folders'): self.folders=self.dict.get('folders')
+    if self.cfile.get('name'): self.name=self.cfile.get('name')
+    if self.cfile.get('path'): self.path=self.cfile.get('path')
+    if self.cfile.get('folders'): self.folders=self.cfile.get('folders')
+
+  def validateCoreFolders(self):
+    call_save = False
+    if self.path:
+
+      for folder in self._folders:
+        fpath = os.path.abspath(os.path.join(self.path, folder))
+        if not os.path.exists(fpath):
+          try:
+            os.mkdir(fpath, 0777)
+          except (OSError, IOError) as e:
+            print("an error occured when attempting to create folder: %s"%fpath)
+            print(e)
+          else:
+            call_save = True
+
+      if call_save:
+        self.saveData()
+
+
+
 
   # ------------------------------------------------------------------------- #
 
@@ -59,18 +99,18 @@ class Project(object):
     return os.path.abspath(os.path.join(self.path, 'data.ini'))
 
   def load(self):
-    self.dict = COBJ.ConfigObj(self.path)
-    for k, v  in self.dict.items():
+    self.cfile = COBJ.ConfigObj(self.path)
+    for k, v  in self.cfile.items():
       self.__setattr__(k, v)
 
-#    if self.dict.get('name'): self.name=self.dict.get('name')
-#    if self.dict.get('path'): self.path=self.dict.get('path')
-#    if self.dict.get('folders'): self.folders=self.dict.get('folders')
+#    if self.cfile.get('name'): self.name=self.cfile.get('name')
+#    if self.cfile.get('path'): self.path=self.cfile.get('path')
+#    if self.cfile.get('folders'): self.folders=self.cfile.get('folders')
 
 
-  def create_config(self):
+  def save(self):
     cfile = COBJ.load(self._config_file_path(), True)
-    print('create_config called')
+    print('save called')
     cfile['name'] = self.name
     print('name set to', self.name)
     cfile['path'] = self.path
@@ -85,7 +125,7 @@ class Project(object):
 
   def create(self):
     # create config file for project
-    self.create_config()
+    self.save()
 
     # build child folders
     self.build()

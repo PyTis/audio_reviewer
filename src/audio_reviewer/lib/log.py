@@ -96,8 +96,9 @@ class MyLogger(logging.Logger):
   had_error = False
   had_warning = False
   paused = False
-  _mode = 'both'
-  modes = ['both', 'file_only', 'screen_only']
+  _mode = 'file_only'
+  modes = ['both', 'file_only', 'screen_only', 'cmd_prompt']
+# cmd_prompt | debug window | log_file
 
 #  def Pause(self):
 #    return self.pause()
@@ -158,7 +159,11 @@ class MyLogger(logging.Logger):
 
   def prnt(self, string):
     if not self.isCompiled and self.mode in ['screen_only', 'both']:
-      print(string)
+      if self.mode == 'screen_only':
+        pass
+      else:
+        print('My Mode is: %s' % str(self.mode))
+        print(string)
     else:
       pass
 
@@ -203,14 +208,14 @@ class MyLogger(logging.Logger):
 
   def warning(self, msg, *args, **kwargs):
     self.had_warning = True
-    self.prnt('WARNING: %s' % str(msg))
+#    self.prnt('WARNING: %s' % str(msg))
     return logging.Logger.warning(self, msg, *args, **kwargs)
 
   def error(self, msg, *args, **kwargs):
     self.had_error = True
-
-    sys.stderr.write("%s%s\n" % (('' if kwargs.get('exc_info',None) else \
-      'ERROR: ') ,msg))
+    if not self.isCompiled:
+      sys.stderr.write("%s%s\n" % (('' if kwargs.get('exc_info',None) else \
+        'ERROR: ') ,msg))
 
     return logging.Logger.error(self, msg, *args, **kwargs)
 
@@ -332,8 +337,10 @@ class MyLogger(logging.Logger):
       exc_info=exc_info
     )
     if self.level < 20:
+      #wx.LogMessage("[%(level_label)s (%(level)s)] %(msg)s - args: %(args)s, FILE: %(fn)s " \
+      #  "lineno: %(lno)s exec_info: %(exc_info)s" % data)
       wx.LogMessage("[%(level_label)s (%(level)s)] %(msg)s - args: %(args)s, FILE: %(fn)s " \
-        "lineno: %(lno)s exec_info: %(exc_info)s" % data)
+        "lineno: %(lno)s" % data)
     else:
       wx.LogMessage("[%(level_label)s (%(level)s)] %(msg)s, %(args)s" % data)
 

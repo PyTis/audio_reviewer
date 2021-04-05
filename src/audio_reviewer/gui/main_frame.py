@@ -1,18 +1,33 @@
 #!/usr/bin/env python
 # encoding=utf-8
 
-import os, sys
-from datetime import datetime
-from pprint import pprint, pformat
+# builtin
+try:
+  import sys
+except KeyboardInterrupt as e:
+  print("KeyboardInterrupt: %s" % str(repr(e)))
+  print("Script terminated by Control-C")
+  print("bye!")
+  exit(1)
 
+# builtin
+from datetime import datetime
+import time
+import glob
+import os
+from pprint import pprint, pformat
+import shutil
 from ConfigParser import ConfigParser as CP
 
+# Internal
 from gui.log_frame import LogFrame
 from gui.project_dlg import ProjectDialog
 from gui.media_panel import MediaPanel
 from gui.panel import LeftPane, RightPane, CenterPane, BottomPane
+from gui import import_dlg as MDD
 
-from images import getMyIconIcon, getDarkPiSymbolIcon
+from images import getMyIconIcon, getDarkPiSymbolIcon, getFolderMusicIcon
+import images
 
 from lib import mbool
 from lib import settings
@@ -21,13 +36,58 @@ from lib import config_file_path, config_dir
 from lib.log import log
 from lib.util import prettyNow
 from lib.settings import _program_name
+from lib.soundfile import SoundFile
 
+from lib.project import acceptable_extensions
+
+#
+# Third-Party
 import wx
 from wx.lib.splitter import MultiSplitterWindow
+
+class MyDirDlg(wx.DirDialog):
+  
+  def __init__(self,parent, message='', defaultPath=os.curdir,
+    style=wx.DEFAULT, pos=wx.DefaultPosition, size=wx.DefaultSize):
+    """
+      parent (wx.Window) – Parent window.
+      message (string) – Message to show on the dialog.
+      defaultPath (string) – The default path, or the empty string.
+      style (long) – The dialog style. See wx.DirDialog
+      pos (wx.Point) – Dialog position. Ignored under Windows.
+      size (wx.Size) – Dialog size. Ignored under Windows.
+    """
+    wx.DirDialog.__init__(self, parent, message, defaultPath, style, pos, size)
+
+    self.testbutton = wx.Button(self, 20, "&SELECT", size=(20, 80),
+      pos=wx.DefaultPosition) 
+    w,h = self.GetSize()
+
+    self.testbutton.SetPosition( (20, h-20) )
+    self.testbutton.Show(True)
+    self.Bind(wx.EVT_ERASE_BACKGROUND, self.onUpdateBtn, self.testbutton)
+    self.Bind(wx.EVT_ERASE_BACKGROUND, self.onUpdateBtn, self)
+    for child in self.GetChildren():
+      child.Show(True)
+
+
+  def OnInit(self):
+    self.testbutton2 = wx.Button(self, 20, "&SELECT", size=(20, 80),
+      pos=wx.DefaultPosition) 
+    w,h = self.GetSize()
+
+    self.testbutton2.SetPosition( (120, 0) )
+    
+
+  def onUpdateBtn(self, evt):
+    self.testbutton.Update()
+
+
 
 class MainFrame(wx.Frame):
   first_run = True
   _project = Project()
+  _current_file = None
 
   wildcard = "Audio Files (*.midi, *.m4a, *.mp3, *.wav, *.wma)|" \
     "*.midi; *.m4a; *.mp3; *.wav; *.wma|" \
@@ -36,12 +96,29 @@ class MainFrame(wx.Frame):
     "WAV (*.wav)|*.wav" \
     "|WMA (*.wma)|*.wma"
 
-  acceptable_extensions = ['.midi', '.m4a', '.mp3', '.wav', '.wma']
-
   default_audio_import_directory = os.getcwd()
 
-  def set_project(self, obj):
-    self._project=obj
+  # current_file
+  def set_current_file(self, Obj=None):
+    if Obj is None:
+      self.disableFileMenus()
+      self.cp.SetOtherLabel('')
+    else:
+      self._current_file=Obj
+      self.showCurrentFile()
+      self.bp.loadMusic(Obj.fpath)
+      self.enableFileMenus()
+
+  def get_current_file(self):
+    return self._current_file
+  current_file = property(get_current_file, set_current_file)
+
+  def showCurrentFile(self):
+    self.cp.SetOtherLabel("Folder: %s       File: %s" % \
+      (self.current_file.folder, self.current_file.filename))
+
+  def set_project(self, Obj):
+    self._project=Obj
   def get_project(self):
     return self._project
   Project = property(get_project, set_project)
@@ -139,6 +216,7 @@ class MainFrame(wx.Frame):
 #    self.Bind(wx.EVT_SIZE, self.onFutureFeature, self)
     '''
     self.disableProjectMenus()
+    self.disableFileMenus()
 
     sp = wx.StandardPaths.Get()
     log = self.log
@@ -184,7 +262,7 @@ class MainFrame(wx.Frame):
     
     #----------------------------------------------------------------------
     self.file_menu = wx.Menu()
-    self.open_file_menu_item = self.file_menu.Append(wx.NewId(), "&Open",
+    self.open_file_menu_item = self.file_menu.Append(wx.NewId(), "&Open\tCTRL+O",
       "Open audio File -- REMOVE LATER")
     self.Bind(wx.EVT_MENU, self.onBrowse, self.open_file_menu_item)
 
@@ -242,7 +320,26 @@ class MainFrame(wx.Frame):
 
     menu_bar.Append(self.file_menu, '&File')
     #----------------------------------------------------------------------
+    self.actions_menu = wx.Menu()
+    self.review_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-&review" folder\tCTRL+1',
+      "Move current file to review Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToReview, self.review_menu_item)
 
+    self.keep_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-&keep" folder\tCTRL+2',
+      "Move current file to Keep Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToKeep, self.keep_menu_item)
+
+    self.remove_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-remo&ve" folder\tCTRL+3',
+      "Move current file to remove Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToRemove, self.remove_menu_item)
+
+    self.other_menu_item = self.actions_menu.Append(wx.NewId(), 'Move to "&other" folder\tCTRL+4',
+      "Move current file to Other Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToOther, self.other_menu_item)
+
+
+    menu_bar.Append(self.actions_menu, '&Actions')
+    #----------------------------------------------------------------------
     options_menu = wx.Menu()
     
     self.debug_window_item = options_menu.Append(wx.NewId(),
@@ -311,6 +408,7 @@ class MainFrame(wx.Frame):
     if str(name).strip() and path.strip():
       self.log.info("open project running")
       self.setCurrentProject(name, path)
+      self.Project.validateCoreFolders()
       self.lp.openProject(self.Project)
       self.enableProjectMenus()
       self.resetLastProject()
@@ -361,12 +459,24 @@ class MainFrame(wx.Frame):
     self.export_menu_item.Enable(False)
     self.export_all__menu_item.Enable(False)
 
+  def disableFileMenus(self):
+    self.review_menu_item.Enable(False)
+    self.keep_menu_item.Enable(False)
+    self.remove_menu_item.Enable(False)
+    self.other_menu_item.Enable(False)
+
   def enableProjectMenus(self):
     self.import_menu_item.Enable(True)
     self.import_menu_item2.Enable(True)
     self.settings_menu_item.Enable(True)
     self.export_menu_item.Enable(True)
     self.export_all__menu_item.Enable(True)
+
+  def enableFileMenus(self):
+    self.review_menu_item.Enable(True)
+    self.keep_menu_item.Enable(True)
+    self.remove_menu_item.Enable(True)
+    self.other_menu_item.Enable(True)
 
   def futureFeature(self, text='This feature is not yet implemented.'):
     global log
@@ -451,10 +561,12 @@ class MainFrame(wx.Frame):
 
     myw, myh = self.GetSize()
     new_width = myw-lpw-rpw
+    '''
     print('-'*80)
     print("lpw:%s cpw:%s , rpw: %s" % (lpw, cpw, rpw))
     print("myw: %s || myh:%s" % (myw, myh))
     print('center panel widht should now be: %s' % new_width)
+    '''
     self.cp.SetSize((new_width,cph))
 
     return evt
@@ -493,16 +605,316 @@ class MainFrame(wx.Frame):
     return self.futureFeature()
 
   def onImportAudioFromFolder(self, evt):
-    evt.Skip()
-    return self.futureFeature()
+    # XXX-FINDME
+    print("MDD.__file__: %s" % MDD.__file__)
+
+    dlg = MDD.MultiDirDialog(None, 
+                             title="Chose a direcotry",
+                             defaultPath=os.getcwd(),
+                             agwStyle=\
+                              MDD.DD_MULTIPLE |
+                              MDD.DD_NEW_DIR_BUTTON |
+                              MDD.DD_DIR_MUST_EXIST
+                             )
+
+    if dlg.ShowModal() != wx.ID_OK:
+        log.debug("You Cancelled The Dialog!")
+        dlg.Destroy()
+        return
+
+    if dlg.checkbox.IsChecked():
+      recursive=True
+    else:
+      recursive=False
+
+    paths = dlg.GetPaths()
+
+    for indx, path in enumerate(paths):
+      self.importAudioFromFolder(path, self.Project.review, recursive)
+
+    dlg.Destroy()
+    return
+
+  def importAudioFromFolder(self, scan_dir, destination, recursive=False,
+    level=0 ):
+
+    """
+    First look locally for overrides
+
+  Extentions Found: dict_keys(['*.wma', '*.WMA', '*.mp3', '*.tmk', '*.csv',
+  '*.DAT', '*.m4a', '*.txt'])
+
+  Extentions Found: dict_keys(['*.wma', '*.WMA', '*.mp3', '*.tmk', '*.DAT',
+  '*.m4a', '*.txt'])
+
+
+
+    """
+    global acceptable_extensions, log
+
+    scandir = os.path.abspath(scan_dir)
+    paths = list(glob.iglob(os.path.join(scandir,'**')))
+
+    possible_import_count = len(paths)
+
+    dlg = wx.ProgressDialog("Audio Import Progress",
+                           "Calculating Import",
+                           maximum = possible_import_count,
+                           parent=self,
+                           style = 0
+                            | wx.PD_APP_MODAL
+                            | wx.PD_CAN_ABORT
+                            #| wx.PD_CAN_SKIP
+                            | wx.PD_ELAPSED_TIME
+                            | wx.PD_ESTIMATED_TIME
+                            | wx.PD_REMAINING_TIME
+                            #| wx.PD_AUTO_HIDE
+                            )
+    print('value of recursive: %s type: %s'  % (repr(recursive),
+      type(recursive)))
+    self._importAudioFromFolder(scan_dir, destination, bool(recursive), 0, dlg)
+
+    if level == 0:
+      dlg.Destroy()
+      self.lp.reloadTree()
+
+  # XXX-FINDME
+  def _importAudioFromFolder(self, scan_dir, destination, recursive, level, dlg):
+
+    print('value of ccrecursive: %s type: %s'  % (repr(recursive),
+      type(recursive)))
+
+    scandir = os.path.abspath(scan_dir)
+    store = os.path.abspath(destination)
+
+    keepGoing = True
+    moved_filecount = 0
+    audio_files=[]
+    md5_sums = {}
+
+    paths = list(glob.iglob(os.path.join(scandir,'**')))
+
+    possible_import_count = len(paths)
+
+    if level == 0:
+      dlg.maximum = possible_import_count
+      dlg.range = possible_import_count
+#      dlg.SetRange()
+    else:
+      dlg.maximum = dlg.maximum + possible_import_count
+      dlg.range = dlg.range + possible_import_count
+
+
+    for count, fpath in enumerate(paths):
+
+      if not keepGoing:
+        break;
+
+
+      if os.path.isdir(fpath):
+        # This is a folder
+        if recursive is True:
+          print("would run self._importAudioFromFolder(store, fpath, " \
+          "recursive, level=level+1) where fpath is: %s and level is: " \
+          "%s" % (str(fpath), str(level+1)))
+          self._importAudioFromFolder(scan_dir, destination, recursive,
+            (level+1), dlg)
+
+      if os.path.isfile(fpath):
+
+        (keepGoing, skip) = dlg.Update(count, "importing %s" %
+          os.path.basename(fpath))
+
+        log.debug("fpath found: %s" % fpath)
+        # This is a file
+        source = SoundFile(fpath)
+        
+        if source.ext.lower() in acceptable_extensions:
+          # This IS a SOUND File
+          audio_files.append(fpath)
+          log.info("I am an exceptable file extension: %s" % source.extension)
+          if source.md5 not in md5_sums.keys():
+            # IT hasn't been cached yet
+            md5_sums[source.md5] = source
+            target = SoundFile(os.path.abspath(os.path.join(store, \
+              source.filename) )) # basename with lowercase extension
+
+            if os.path.exists(target.fpath):
+              # The target exists by FILENAME
+              if target.md5 == source.md5:
+                # The target matches by MD5 Sum also
+                log.info("Already copied/moved here, skip... (%s)" % source.fpath) 
+              else:
+                # The target exists by Filename, but has different contents,
+                # THEREFORE we should keep this file, but with a new filename.
+
+                shutil.copy(source.fpath, safe_fname(target.fpath))
+                if not os.path.isfile(target.fpath) or \
+                   not os.path.exists(target.fpath):
+                  log.info("COPYING FAILED.")
+                  log.info3("A1: shutil.copy(%s, safe_fname(%s))" % (source.fpath,
+                    target.fpath))
+                else:
+                  log.info("COPIED: %s" % target.fpath)
+                  moved_filecount+=1
+
+            else:
+              # This target does not exist by filename
+              shutil.copy(source.fpath, target.fpath)
+              if not os.path.isfile(target.fpath) or \
+                 not os.path.exists(target.fpath):
+                log.info("COPYING FAILED.")
+                log.info3("B2: shutil.copy(%s, %s)" % (source.fpath, target.fpath))
+              else:
+                log.info("COPIED: %s" % target.fpath)
+                moved_filecount+=1
+
+          else:
+            # This MD5 sum has already been cached (we have already came across a
+            # file with the same contents).
+            if source.base_name == md5_sums[source.md5].base_name:
+              # The file with the same contents also has the same name, it just
+              # is in a different folder, it must be a copy/paste thing.  Skip
+              # it.
+
+              pass
+            else:
+              # The contents already exist, but with a different filename.  Since
+              # we already have a duplicate, we will skip moving.
+              log.info("X"*80)
+              log.info("THIS MD5 ALREADY EXITS / BUT WITH A DIFFERENT FILENAME.")
+              log.info("already cached: %s" % md5_sums[source.md5].filepath)
+              log.info("now looking at duplicate located at: %s" % source.filepath)
+              log.info("")
+        else:
+          # Not a VALID file extension
+          log.critical("I am NOT an exceptable file extension, " \
+            "filename: %s" % source.ext)
+          #pass
+
+      
+    log.info("%s files scanned" % len(audio_files))
+    log.info("%s files moved" % moved_filecount)
+
 
   def importAudioFiles(self, paths):
-    global log
-    log.info('test')
-    print("I will imnport paths", paths)
+    global acceptable_extensions, log
+
+    # XXX-FINDME
+
+    possible_import_count = len(paths)
+
+    dlg = wx.ProgressDialog("Audio Import Progress",
+                           "Calculating Import",
+                           maximum = possible_import_count,
+                           parent=self,
+                           style = 0
+                            | wx.PD_APP_MODAL
+                            | wx.PD_CAN_ABORT
+                            #| wx.PD_CAN_SKIP
+                            | wx.PD_ELAPSED_TIME
+                            | wx.PD_ESTIMATED_TIME
+                            | wx.PD_REMAINING_TIME
+                            #| wx.PD_AUTO_HIDE
+                            )
+    keepGoing = True
+    moved_filecount = 0
+    audio_files=[]
+    md5_sums = {}
+
+    
+    for count, fpath in enumerate(paths):
+
+      if not keepGoing:
+        break;
+
+      if os.path.isdir(fpath):
+        # This is a folder
+        pass
+
+      (keepGoing, skip) = dlg.Update(count, "importing %s" %
+        os.path.basename(fpath))
+
+      if os.path.isfile(fpath):
+        # This is a file
+        source = SoundFile(fpath)
+        
+        if source.ext.lower() in acceptable_extensions:
+          # This IS a SOUND File
+          audio_files.append(fpath)
+
+          if source.md5 not in md5_sums.keys():
+            # IT hasn't been cached yet
+            md5_sums[source.md5] = source
+
+            # source.filename = basename with lowercase extension
+            target = SoundFile(os.path.abspath(os.path.join(
+              self.Project.review, source.filename) ))
+
+            if os.path.exists(target.fpath):
+              # The target exists by FILENAME
+              if target.md5 == source.md5:
+                # The target matches by MD5 Sum also
+                print("Already copied/moved here, skip... (%s)" % source.fpath) 
+              else:
+                # The target exists by Filename, but has different contents,
+                # THEREFORE we should keep this file, but with a new filename.
+
+                shutil.copy(source.fpath, safe_fname(target.fpath))
+                if not os.path.isfile(target.fpath) or not \
+                  os.path.exists(target.fpath):
+                  print("COPYING FAILED.")
+                  print("A1: shutil.copy(%s, safe_fname(%s))" % (source.fpath,
+                    target.fpath))
+                else:
+                  print("COPIED: %s" % target.fpath)
+                  moved_filecount+=1
+
+            else:
+              # This target does not exist by filename
+              shutil.copy(source.fpath, target.fpath)
+              # if not result: # this only worked in python3, won't work in
+              # python2.7
+
+              if not os.path.isfile(target.fpath) or not \
+                os.path.exists(target.fpath):
+                print("COPYING FAILED.")
+                print("B2: shutil.copy(%s, %s)" % (source.fpath, target.fpath))
+              else:
+                print("COPIED: %s" % target.fpath)
+                moved_filecount+=1
+
+          else:
+            # This MD5 sum has already been cached (we have already came across a
+            # file with the same contents).
+            if source.base_name == md5_sums[source.md5].base_name:
+              # The file with the same contents also has the same name, it just
+              # is in a different folder, it must be a copy/paste thing.  Skip
+              # it.
+
+              #print("THIS MD5 ALREADY EXITS.")
+              #print("already cached: %s" % md5_sums[source.md5].filepath)
+              #print("now looking at duplicate located at: %s" % source.filepath)
+              # print("")
+              pass
+            else:
+              # The contents already exist, but with a different filename.  Since
+              # we already have a duplicate, we will skip moving.
+              print("X"*80)
+              print("THIS MD5 ALREADY EXITS / BUT WITH A DIFFERENT FILENAME.")
+              print("already cached: %s" % md5_sums[source.md5].filepath)
+              print("now looking at duplicate located at: %s" % source.filepath)
+              print("")
+        else:
+          # Not a VALID file extension
+          pass
+
+    dlg.Destroy()
+
+    self.lp.reloadTree()
+
 
   def onImportAudioFiles(self, evt):
-    paths = None
 
     # self.log.WriteText("CWD: %s\n" % os.getcwd())
     # Create the dialog. In this case the current directory is forced as the starting
@@ -512,36 +924,25 @@ class MainFrame(wx.Frame):
     #
     # Finally, if the directory is changed in the process of getting files, this
     # dialog is set up to change the current working directory to the path chosen.
-
     dlg = wx.FileDialog(
       self, message="Choose a file or files",
       defaultDir=self.default_audio_import_directory, 
       defaultFile="",
       wildcard=self.wildcard,
-      style=wx.OPEN | wx.MULTIPLE | wx.CHANGE_DIR
+      style=wx.OPEN | wx.MULTIPLE | wx.CHANGE_DIR | wx.FILE_MUST_EXIST
     )
+    dlg.SetIcon(images.getCatalogsIcon())
 
-    # Show the dialog and retrieve the user response. If it is the OK response, 
-    # process the data.
     if dlg.ShowModal() == wx.ID_OK:
-      # This returns a Python list of files that were selected.
       paths = dlg.GetPaths()
-
-      self.log.WriteText('You selected %d files:' % len(paths))
-
       for path in paths: self.log.debug('       %s\n' % path)
 
       self.importAudioFiles(paths)
-
       self.default_audio_import_directory = os.getcwd()
 
-    # Compare this with the debug above; did we change working dirs?
-#    self.log.WriteText("CWD: %s\n" % os.getcwd())
-
-    # Destroy the dialog. Don't do this until you are done with it!
-    # BAD things can happen otherwise!
-
     dlg.Destroy()
+
+    # XXX-TODO
 
   def onToggleDebugFrame(self, event):
     global log
@@ -565,7 +966,7 @@ class MainFrame(wx.Frame):
     """
     Opens file dialog to browse for music
     """
-
+    print('in onBrowse')
     dlg = wx.FileDialog(
       self, message="Choose a file",
       defaultDir=self.currentFolder, 
@@ -573,10 +974,14 @@ class MainFrame(wx.Frame):
       wildcard=self.wildcard,
       style=wx.OPEN | wx.CHANGE_DIR
       )
+
     if dlg.ShowModal() == wx.ID_OK:
+      print('ok clicked')
       path = dlg.GetPath()
       self.currentFolder = os.path.dirname(path)
-      self.loadMusic(path)
+      print('path found: %s' % path)
+      self.current_file = SoundFile(path)
+      print('current file is: %s' % self.current_file.fpath)
     dlg.Destroy()
 
   def onClose(self, evt):

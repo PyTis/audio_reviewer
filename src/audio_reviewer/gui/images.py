@@ -12,7 +12,8 @@
 # getBookmarkPurpleData, getBookmarkPurpleBitmap, getBookmarkPurpleImage,
 # getBookmarkPurpleIcon, getBookmarkYellowData, getBookmarkYellowBitmap,
 # getBookmarkYellowImage, getBookmarkYellowIcon, getCatalogsData,
-# getCatalogsBitmap, getCatalogsImage, getCatalogsIcon, getDarkPiSymbolData,
+# getCatalogsBitmap, getCatalogsImage, getCatalogsIcon, getClockData,
+# getClockBitmap, getClockImage, getClockIcon, getDarkPiSymbolData,
 # getDarkPiSymbolBitmap, getDarkPiSymbolImage, getDarkPiSymbolIcon,
 # getFasterData, getFasterBitmap, getFasterImage, getFasterIcon, getFirstData,
 # getFirstBitmap, getFirstImage, getFirstIcon, getFolderData, getFolderBitmap,
@@ -1529,6 +1530,36 @@ def getCatalogsImage():
 def getCatalogsIcon():
     icon = EmptyIcon()
     icon.CopyFromBitmap(getCatalogsBitmap())
+    return icon
+
+#----------------------------------------------------------------------
+def getClockData():
+    return \
+'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x16\x00\x00\x00\x16\x08\x06\
+\x00\x00\x00\xc4\xb4l;\x00\x00\x00\x04sBIT\x08\x08\x08\x08|\x08d\x88\x00\x00\
+\x01#IDAT8\x8d\xad\x951\x8e\xc20\x10E\x1f\xabM\xcam\xa98F\x8a=\x00]\xa4\xbd\
+\x0f\xb7\xc8\x198\x08==\xdav\x9b\xb4\x11\x15T\x91\xb7\xc8\x1f0\x96\x1d;\xc0\
+\x97\xa2D\x99\x99\xe7\xc9d<\x86\xb4*`\x0f\\\x00\x17\\\x17\xd9\xaa\x99\xf8\
+\xa8\x8e\x02\x0c@\x07\xb4@\xaf\xab\xd5\xbbA>\xc7\x12\xe0\x06\x18\x15p\x00j\
+\xcff\xd9\x9a\xbe\x81?\xbd\x1b\x15\x9b\x84:\xe0\x17h<XL_\x9e\xadQ\x8cK\xc1G9\
+$W\x8e\xc8\xbeb\xa3\xd81t\xb0\x9a6\xa1\xa1\x00j:\x11\xd4\xbc\xe2^\xd3%\xf2\
+\xc1v\xdf\xe9\xb9\x82\xa9m\x06\xa6\x1f\x95\xaai.[S-\xd6\x1e\xa6\x9e\xecf\x00\
+\xa5PS\'&\x8e\xa97s\xd9\xfd\x00\xeb\x0c\x14\xb1\x9c\x05\xf6\x99\x00\x07\x9c\
+\x0b\xb2\xbd\xb1>3\xab\x9bV^\xe0j\xce1\\e\xae\x14K\xd5\x02\xee\x03\xb8\x02\
+\xdb7\x82\xb7b>\xb4\xdb\xabzh7\xdb ;\x19K{\xd9Wt\x83\xc0}K\x9f\x9e\xcc\x14"[\
+\xda\xf4\xcc\x102\xf5$\x86\x10,\x1b\x9b\xbe-;6\r^:\xe8k\xf9d\x07\xbd\xaf\xb7\
+\x1fM\xbe^:L\xff\x01+A\x83\x84^\xc3TX\x00\x00\x00\x00IEND\xaeB`\x82' 
+
+def getClockBitmap():
+    return BitmapFromImage(getClockImage())
+
+def getClockImage():
+    stream = cStringIO.StringIO(getClockData())
+    return ImageFromStream(stream)
+
+def getClockIcon():
+    icon = EmptyIcon()
+    icon.CopyFromBitmap(getClockBitmap())
     return icon
 
 #----------------------------------------------------------------------

@@ -6,11 +6,14 @@ from distutils.dir_util import copy_tree
 # Third Party
 import wx
 import wx.lib.scrolledpanel as scrolled
-from lib.settings import CONFIG
+from wx.lib.buttons import GenBitmapButton
 from wx.lib import masked
 
 # My Stuff
 from gui import images
+from lib.project import acceptable_extensions
+from lib.settings import CONFIG
+from lib.soundfile import SoundFile
 #from src.OwnerDLG import OwnerDLG
 #from src.GetBinsDLG import GetBinsDLG
 #from src.EditDLG import EditDLG
@@ -32,7 +35,7 @@ class MyScrolledPanel(scrolled.ScrolledPanel):
 
   bgcolor="#E5E5E5"
   bgimage=None
-
+  my_label=None
 
   def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
     style=wx.SIMPLE_BORDER):
@@ -60,11 +63,22 @@ class MyScrolledPanel(scrolled.ScrolledPanel):
       rect = self.GetUpdateRegion().GetBox()
       dc.SetClippingRect(rect)
 
-  def SetOtherLabel(self, label):
-    wx.StaticText(self, -1, label, (4, 4))
+  def SetOtherLabel(self, label=None):
+    if not label:
+      label = ''
+    if not self.my_label:
+      self.my_label = wx.StaticText(self, -1, label, (4, 4))
+    else:
+      # first clear it if there had been data before that was longer
+      self.my_label.SetLabelText('')
+      # now we will call refresh to ensure we wiped the screen
+      self.my_label.Refresh()
+      # now add new label
+      self.my_label.SetLabelText(label)
+      # and now call refresh to make sure it draws
+      self.my_label.Refresh()
 
   def showError(self, err_name, err_msg, icon=wx.ICON_ERROR):
-    print('e')
     dlg = wx.MessageDialog(self, err_msg,
        err_name, wx.OK | icon
        )
@@ -81,6 +95,7 @@ class MyPanel(wx.Panel):
 
   bgcolor="#E5E5E5"
   bgimage=None
+  my_label=None
 
   def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
     style=wx.SIMPLE_BORDER):
@@ -109,8 +124,20 @@ class MyPanel(wx.Panel):
       rect = self.GetUpdateRegion().GetBox()
       dc.SetClippingRect(rect)
 
-  def SetOtherLabel(self, label):
-    wx.StaticText(self, -1, label, (4, 4))
+  def SetOtherLabel(self, label=None):
+    if not label:
+      label = ''
+    if not self.my_label:
+      self.my_label = wx.StaticText(self, -1, label, (4, 4))
+    else:
+      # first clear it if there had been data before that was longer
+      self.my_label.SetLabelText('')
+      # now we will call refresh to ensure we wiped the screen
+      self.my_label.Refresh()
+      # now add new label
+      self.my_label.SetLabelText(label)
+      # and now call refresh to make sure it draws
+      self.my_label.Refresh()
 
   def showError(self, err_name, err_msg, icon=wx.ICON_ERROR):
     dlg = wx.MessageDialog(self, err_msg,
@@ -193,6 +220,9 @@ class MyTree(DragAndDrop, wx.TreeCtrl):
 
   #def addData(self, rpath="C:\\cygwin64\\home\\jlee\\github\\audio_reviewer\src\\store\\"):
   def addData(self, rpath):
+    global acceptable_extensions
+#    acceptable_extensions = self.parent.frame.acceptable_extensions
+
     root_path=os.path.abspath(rpath)
     self.root = self.AddRoot('Store', self.folderidx)
     ids = {root_path : self.root}
@@ -205,13 +235,15 @@ class MyTree(DragAndDrop, wx.TreeCtrl):
           fullpath = os.path.join(dirpath, dirname)
           
           if dirname == 'to-keep':
-            self.log.warn('dirname is: %s' % dirname)
+            self.log.info4('dirname is: %s' % dirname)
             ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
               self.folderidthumb)
           elif dirname == 'to-review':
-            self.log.warn('dirname in to-review is: %s' % dirname)
-            ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
+            self.log.info4('dirname in to-review is: %s' % dirname)
+            self.review_folder_item = self.AppendItem(ids[dirpath], dirname,
               self.folderidquestion)
+            ids[fullpath] = self.review_folder_item
+
           elif dirname == 'to-remove':
             ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
               self.folderidother)
@@ -222,63 +254,29 @@ class MyTree(DragAndDrop, wx.TreeCtrl):
           self.SetPyData(ids[fullpath], fullpath)
              
       for filename in sorted(filenames):
-        child_fpath = os.path.abspath(os.path.join(dirpath, filename))
-        child_file = self.AppendItem(ids[dirpath], filename, self.fileidx)
-        self.SetPyData(child_file, child_fpath)
+        sfile = SoundFile(os.path.abspath(os.path.join(dirpath, filename)))
+        if sfile.ext.lower() in acceptable_extensions:
+          child_fpath = os.path.abspath(os.path.join(dirpath, filename))
+          child_file = self.AppendItem(ids[dirpath], filename, self.fileidx)
+          self.SetPyData(child_file, child_fpath)
 
-
-#    self.log.warn('ids:')
     self.log.debug(ids)
+    self.Expand(self.review_folder_item)
 
 class LeftPane(MyScrolledPanel):
   bgcolor='#FFFFFF'
 
-  def OnSelChanged(self, event):
-    self.item = event.GetItem()
-    self.log.debug("ITEM IS: %s" % self.item)
+  @property
+  def Project(self):
+    return self.frame.Project
 
-
-    if self.item:
-      result = self.tree.GetPyData(self.item)
-      test = os.path.abspath(result) 
-      if os.path.isfile(test) and os.path.exists(test):
-        self.frame.bp.loadMusic(test)
-
-      self.log.debug("TEST: %s" % result)
-
-      self.log.debug("OnSelChanged: %s\n" % self.tree.GetItemText(self.item))
-
-      if wx.Platform == '__WXMSW__':
-        self.log.debug("BoundingRect: %s\n" %
-                   self.tree.GetBoundingRect(self.item, True))
-
-      #items = self.tree.GetSelections()
-      #print map(self.tree.GetItemText, items)
-    event.Skip()
-
-  def OnActivate(self, event):
-    if self.item:
-      self.log.debug("OnActivate: %s\n" % self.tree.GetItemText(self.item))
-  
-  def openProject(self, Project):
+  def reloadTree(self, Project=None):
+    project = Project or self.Project
     self.tree.DeleteAllItems()
-    self.tree.addData(Project.path)
+    self.Refresh()
+    self.tree.addData(project.path)
     return
-#    self.tree.root_dir=Project.path
-    #path_now = self.frame.project_path or os.curdir
-    path_now = str(Project.path)
-    root_path=os.path.abspath(path_now)
-    self.tree.dir = root_path
-    self.tree.addData(root_path)
-#    self.tree.Expand(self.tree.GetRootItem())
-
-#    self.tree.ShowHidden(False)
-#    self.tree.SetDefaultPath(root_path)
-#    self.tree.SetPath(root_path)
-
-#    Tree = self.tree.GetTreeCtrl()
-
-#    Tree.AppendItem(Tree.GetRootItem(), root_path)
+  rebuildTree=reloadTree # alias
 
   def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
     style=wx.SIMPLE_BORDER):
@@ -321,11 +319,66 @@ class LeftPane(MyScrolledPanel):
     self.Bind(wx.EVT_TIMER, self.onLoadProject)
     self.timer2.Start(3)
   #----------------------------------------------------------------------
+    self.Bind(wx.EVT_ERASE_BACKGROUND, self.onEraseBackground)
+
+  def onEraseBackground(self, evt):
+    dc = evt.GetDC()
+    if not dc:
+      dc = wx.ClientDC(self)
+      rect = self.GetUpdateRegion().GetBox()
+      dc.SetClippingRect(rect)
 
   def onLoadProject(self, evt):
     self.timer2.Stop()
 #    self.timer2.Unlink()
     self.frame.checkSetup()
+
+  def setSoundFile(self, fpath):
+    pass
+
+  def OnSelChanged(self, event):
+    self.item = event.GetItem()
+    self.log.debug("ITEM IS: %s" % self.item)
+
+
+    if self.item:
+      result = self.tree.GetPyData(self.item)
+      test = os.path.abspath(result) 
+      if os.path.isfile(test) and os.path.exists(test):
+        self.frame.bp.mediaPlayer.Stop()
+        self.frame.current_file = SoundFile(test)
+        #self.frame.bp.loadMusic(test)
+
+      if wx.Platform == '__WXMSW__':
+        self.log.debug("BoundingRect: %s\n" %
+                   self.tree.GetBoundingRect(self.item, True))
+
+      #items = self.tree.GetSelections()
+      #print map(self.tree.GetItemText, items)
+    event.Skip()
+
+  def OnActivate(self, event):
+    if self.item:
+      self.log.debug("OnActivate: %s\n" % self.tree.GetItemText(self.item))
+
+  
+  def openProject(self, Project):
+    return self.reloadTree(Project)
+#    self.tree.root_dir=Project.path
+    #path_now = self.frame.project_path or os.curdir
+    path_now = str(Project.path)
+    root_path=os.path.abspath(path_now)
+    self.tree.dir = root_path
+    self.tree.addData(root_path)
+#    self.tree.Expand(self.tree.GetRootItem())
+
+#    self.tree.ShowHidden(False)
+#    self.tree.SetDefaultPath(root_path)
+#    self.tree.SetPath(root_path)
+
+#    Tree = self.tree.GetTreeCtrl()
+
+#    Tree.AppendItem(Tree.GetRootItem(), root_path)
 
 
 class CenterPane(MyPanel):
@@ -346,6 +399,7 @@ class CenterPane(MyPanel):
 #    bpm = wx.StaticBitmap(self, -1, getSVMuteBitmap(), (50,150), (48,48) )
 #    bpm.Show(True)
 
+    border_style = wx.BORDER_STATIC
 
     border_sizer = wx.BoxSizer(wx.VERTICAL)
     main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -356,16 +410,40 @@ class CenterPane(MyPanel):
     spin2 = wx.SpinButton( self, -1, pos=(20, 40), size=(-1,23), style=wx.SP_VERTICAL )
     self.time24 = masked.TimeCtrl(self, -1, name="Bookmark", fmt24hr=True,
       spinButton = spin2)
-
+    self.time24.SetSize( (66,-1) )
     first_row_sizer.Add(bookmark, 20, wx.ALL|wx.ALIGN_LEFT|wx.ALIGN_CENTER_VERTICAL,2)
 
-    first_row_sizer.Add(self.time24, 15, wx.EXPAND|wx.ALL|wx.ALIGN_CENTER_VERTICAL, 2)
+    first_row_sizer.Add(self.time24, 15, wx.FIXED_MINSIZE|wx.ALIGN_CENTER_VERTICAL, 2)
 
     first_row_sizer.Add(spin2, 5, wx.EXPAND|wx.ALL, 2)
 
-    insert_button = wx.Button(self, -1, "&INSERT", (20, 80)) 
+    self.captureBtn = GenBitmapButton(self,
+      bitmap=images.getClockBitmap(), name="Capture", style=border_style)
+    self.captureBtn.SetToolTipString("Grab Timestamp")
+    self.captureBtn.Bind(wx.EVT_BUTTON, self.onGrabTime)
+    first_row_sizer.Add(self.captureBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
 
-    first_row_sizer.Add(insert_button, 15, wx.EXPAND|wx.ALL) # Spacer, 
+    self.insertBtn = GenBitmapButton(self,
+      bitmap=images.getPlusBitmap(), name="Insert", style=border_style)
+    self.insertBtn.SetToolTipString("Create Bookmark")
+    self.insertBtn.Bind(wx.EVT_BUTTON, self.onInsertBookmark)
+    first_row_sizer.Add(self.insertBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
+
+    self.removeBtn = GenBitmapButton(self,
+      bitmap=images.getMinusBitmap(), name="Remove", style=border_style)
+    self.removeBtn.SetToolTipString("Remove Bookmark")
+    self.removeBtn.Bind(wx.EVT_BUTTON, self.onRemoveBookmark)
+    self.removeBtn.Enable(False)
+    first_row_sizer.Add(self.removeBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
+
+
+    '''
+    rateButtonsGroup.Add(self.insertBtn, 0, wx.ALIGN_BOTTOM, 0)
+    '''
+
+    #insert_button = wx.Button(self, -1, "&INSERT", (20, 80)) 
+
+    #first_row_sizer.Add(insert_button, 15, wx.EXPAND|wx.ALL) # Spacer, 
 
     first_row_sizer.Add((24,24), 15, wx.EXPAND|wx.ALL) # Spacer, 
     first_row_sizer.Add((24,24), 15, wx.EXPAND|wx.ALL) # Spacer, but later buttons
@@ -393,6 +471,14 @@ class CenterPane(MyPanel):
     self.Layout()
 #    self.log_text_ctrl.SetSize(self.log_text_ctrl.GetBestSize())
 
+  def onGrabTime(self, evt):
+    pass
+
+  def onInsertBookmark(self, evt):
+    pass
+
+  def onRemoveBookmark(self, evt):
+    pass
 
 class RightPane(MyScrolledPanel):
   bgcolor='#AAAAAA'

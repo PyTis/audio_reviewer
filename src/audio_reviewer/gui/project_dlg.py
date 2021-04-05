@@ -1,12 +1,23 @@
 
+# Built In
+import os
 
+# Third Party
+import images
 import wx
 
+# My Stuff
+from lib import settings
+from lib.project import Project
+
+
+########################################################################
 class ProjectDialog(wx.Dialog):
   
   @property
   def CONFIG(self):
     return settings.CONFIG
+
 
   def __init__(self, parent, title='New Project Wizard', pos=(-1,-1), size=(700,400),
     style=wx.DEFAULT_FRAME_STYLE|wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_CENTER):
@@ -16,13 +27,15 @@ class ProjectDialog(wx.Dialog):
     wx.Dialog.__init__(self, parent, -1, title, pos, size, style)
     self.SetBackgroundColour('#E5E5E5')
 
+    self.SetIcon(images.getMusicIcon())
+
     font = wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.NORMAL)
     title = wx.StaticText(self, -1, "Step 1: Setup Project")
     title.SetFont(font)
     
     chars = 440
     l1 = wx.StaticText(self, -1, "Project Name:", style=wx.ALIGN_RIGHT)
-    self.project_nameTC = wx.TextCtrl(self, -1, "see", size=(chars, -1))
+    self.project_nameTC = wx.TextCtrl(self, -1, "", size=(chars, -1))
 
     l2 = wx.StaticText(self, -1, "Project Path:", style=wx.ALIGN_RIGHT)
     self.project_pathTC=wx.TextCtrl(self,-1,"Empty Directory",size=(chars,-1))
@@ -59,26 +72,18 @@ class ProjectDialog(wx.Dialog):
     bsizer.Add(import_check, 0, wx.TOP|wx.LEFT, 10)
     '''
 
-    self.build_button = wx.Button(self, -1, "Build", (460, 310) )
+    self.build_button = wx.Button(self, -1, "&Build", (460, 310) )
     self.build_button.SetSize(self.build_button.GetBestSize())
     self.Bind(wx.EVT_BUTTON, self.onSave, self.build_button)
 
-    self.cancel_button = wx.Button(self, -1, "Cancel", (560, 310) )
+    self.cancel_button = wx.Button(self, -1, "&Cancel", (560, 310) )
     self.cancel_button.SetSize(self.cancel_button.GetBestSize())
     self.Bind(wx.EVT_BUTTON, self.onCancel, self.cancel_button)
 
   def onSave(self, evt):
 
-    name = self.project_nameTC.GetValue()
-    path = self.project_pathTC.GetValue()
-
-#    print('onSave called, self.project_nameTC.GetValue() is: %s' % name)
-
-    self.CONFIG.project_name = name
-#    print('now in CONFIG, value is: %s' % self.CONFIG.project_name)
-    self.CONFIG.project_path = path
-
-#   print('passsing into Project __init__ :%s' % self.CONFIG.project_name)
+    self.CONFIG.project_name = self.project_nameTC.GetValue()
+    self.CONFIG.project_path = self.project_pathTC.GetValue()
 
     project = Project(name=self.CONFIG.project_name,
       path=self.CONFIG.project_path)
@@ -101,7 +106,7 @@ class ProjectDialog(wx.Dialog):
 
     self.CONFIG.save()
 
-    self.frame.setTitle(name)
+    self.frame.setTitle(self.CONFIG.project_name)
 
     self.Close()
     return wx.ID_OK

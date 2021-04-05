@@ -1,6 +1,8 @@
 import os
+import datetime
+import time
 # Third Party
-import wx.media
+import wx.media as WM
 import wx
 
 import wx.lib.buttons  as  buttons
@@ -11,8 +13,6 @@ from gui.panel import MyPanel
 
 import images
 
-dirName = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-bitmapDir = os.path.join(dirName, 'bitmaps')
 
 class SoundIcon(wx.StaticBitmap):
   
@@ -47,8 +47,22 @@ class MediaPanel(MyPanel):
   """
   bgcolor="#ffFFff"
   bgcolor="#e5e5e5"
+#  bgcolor="#4C4C4C"
   volume_bar = None
   rate_bar = None
+  mute_volume = 50
+  is_muted = False
+  _muted = False
+
+  def set_muted(self, b):
+    self._muted = b
+  def get_muted(self):
+    return self._muted
+  muted=Muted=property(get_muted, set_muted)
+
+  def Mute(self): self.set_muted(True)
+  def toggleMute(self): self.muted = bool(not self.muted)
+
   #----------------------------------------------------------------------
   def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
     style=wx.SIMPLE_BORDER):
@@ -64,14 +78,11 @@ class MediaPanel(MyPanel):
     self.currentRate = 1
     self.currentVolume = 50
     self.layoutControls()
+    self.disableFileButtons()
     
     self.timer = wx.Timer(self)
     self.Bind(wx.EVT_TIMER, self.onTimer)
     self.timer.Start(100)
-      
-
-  def SetOtherLabel(self, label):
-    wx.StaticText(self, -1, label, (4, 4))
 
   def layoutControls(self):
     """
@@ -79,7 +90,7 @@ class MediaPanel(MyPanel):
     """
     
     try:
-      self.mediaPlayer = wx.media.MediaCtrl(self, style=wx.SIMPLE_BORDER)
+      self.mediaPlayer = WM.MediaCtrl(self, style=wx.SIMPLE_BORDER)
     except NotImplementedError:
       self.Destroy()
       raise
@@ -87,56 +98,53 @@ class MediaPanel(MyPanel):
     # create playback slider
 
     #self.playbackSlider = AGWSlider(self, size=wx.DefaultSize)
+    media_panel_x, media_panel_y= self.GetSize()
         
+    #audioBarSizer = wx.BoxSizer(wx.HORIZONTAL)
     # Create sizers
-    outer_sizer = wx.BoxSizer(wx.HORIZONTAL)
+    a_sizer = wx.BoxSizer(wx.HORIZONTAL)
+    b_sizer = wx.BoxSizer(wx.VERTICAL)
+    c_sizer = wx.BoxSizer(wx.HORIZONTAL)
+    control_button_sizer = self.buildAudioBar()
 
-    main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+    self.playbackSlider = wx.Slider(self, size=wx.DefaultSize,
+      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS)
 
-    self.playbackSlider = wx.Slider(self, size=wx.DefaultSize)
+    self.playbackSlider.SetThumbLength(1000)
     self.Bind(wx.EVT_SLIDER, self.onSeek, self.playbackSlider)
-
-    hSizer = wx.BoxSizer(wx.VERTICAL)
-
-    audioSizer = self.buildAudioBar()
         
     # layout widgets
-#    main_sizer.Add((-1,24), 0, wx.EXPAND) # Spacer | spacer
-    hSizer.Add(self.playbackSlider, 1, wx.ALL|wx.EXPAND|wx.BOTTOM|wx.NORTH|wx.SOUTH|wx.EAST | wx.WEST, 5)
+#    b_sizer.Add((-1,24), 0, wx.EXPAND) # Spacer | spacer
+    b_sizer.Add(self.playbackSlider, 1, wx.ALL|wx.EXPAND|wx.ALIGN_TOP)
+#    b_sizer.AddStretchSpacer()
 
-    hSizer.Add(audioSizer, 40, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT|wx.NORTH|wx.SOUTH|wx.EAST | wx.WEST, 5)
+    c_sizer.Add(control_button_sizer, 1, wx.ALIGN_BOTTOM|wx.ALIGN_LEFT|wx.SOUTH|wx.EAST, 5)
+#    c_sizer.AddStretchSpacer(1)
+#    c_sizer.Add(self.rateBar, 0, wx.ALL|wx.EXPAND|wx.ALIGN_BOTTOM|wx.ALIGN_RIGHT)
 
-#   Add(self, item, int proportion=0, int flag=0, int border=0, |PyObject userData=None)
-    self.rate_label = wx.StaticText(self, -1, 'Rate: 1', (4, 4))
+    b_sizer.Add(c_sizer, 1, wx.ALL|wx.EXPAND|wx.ALIGN_BOTTOM)
 
-    rateSizer = wx.BoxSizer(wx.VERTICAL)
-    rateSizer.Add(self.rateBar, proportion=0, flag=wx.ALL|wx.CENTER, border=10)
-    rateSizer.Add(self.rate_label, 0, wx.ALL|wx.CENTER, 2)
+    # parent id pos size
 
-    self.volume_icon = SoundIcon(parent=self, id=-1, size=(35,22))
-    volume_label = wx.StaticText(self, -1, ' ', (4, 4))
+    self.volume_icon = SoundIcon(parent=self, id=-1, size=(35,22)) # XXX
+    volumeSizerUD = wx.BoxSizer(wx.VERTICAL)
+    volumeSizerLR = wx.BoxSizer(wx.HORIZONTAL)
+    volumeSizerLR.Add(self.volume_icon, 1, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_LEFT, 2)
+    volumeSizerLR.Add(self.volumeBar, proportion=0, flag=wx.ALL|wx.EXPAND|wx.ALIGN_LEFT)
+    volumeSizerUD.Add(volumeSizerLR, 1, wx.ALL|wx.EXPAND|wx.ALIGN_RIGHT)
 
-    volumeSizer = wx.BoxSizer(wx.VERTICAL)
-    volumeSizer.Add(self.volumeBar, proportion=0, flag=wx.ALL|wx.EXPAND|wx.ALIGN_LEFT)
-    volumeSizer.Add(volume_label, 0, wx.ALL|wx.EXPAND|wx.ALIGN_LEFT, 2)
-    volumeSizer.Add(self.volume_icon, 1, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_LEFT, 2)
+    self.volume_icon.Bind(wx.EVT_LEFT_UP, self.onToggleMute)
+    #volumeSizer_x, volumeSizer_y= volumeSizer.GetMinSize()
 
-    #self.mediaPlayer.ShowPlayerControls(True)
+    #volumeSizer.SetSize(volumeSizer.GetMinSize())
 
-    #hSizer.Add(volumeSizer, 35, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT, 2)
-    
-    main_sizer.Add(hSizer, 80)
+    a_sizer.Add(b_sizer, 1, wx.ALL|wx.EXPAND|wx.ALIGN_TOP) # |wx.NORTH|wx.SOUTH|wx.EAST | wx.WEST)
+    a_sizer.Add(volumeSizerUD, 0, wx.FIXED_MINSIZE, 2)
 
-    main_sizer.Add(rateSizer, 10)
+#    self.mediaPlayer.ShowPlayerControls(True)
+    self.mediaPlayer.ShowPlayerControls(wx.media.MEDIACTRLPLAYERCONTROLS_DEFAULT)
 
-#    outer_sizer.Add(hSizer, 50)
-    outer_sizer.Add(main_sizer, 80, wx.ALIGN_CENTER)
-#    outer_sizer.Add(rateSizer, 50)
-    outer_sizer.Add(volumeSizer, 100, wx.ALL|wx.EXPAND)
-
-#    outer_sizer.Add(volumeSizer, 50, wx.ALL|wx.EXPAND)
-
-    self.SetSizer(outer_sizer)
+    self.SetSizer(a_sizer)
     self.Layout()
     
   #----------------------------------------------------------------------
@@ -156,13 +164,13 @@ class MediaPanel(MyPanel):
       bitmap=images.getFirstBitmap(), name="First", style=border_style)
     self.firstBtn.SetToolTipString("First")
 #    self.firstBtn.Bind(wx.EVT_BUTTON, self.onFirst)
-    audioBarSizer.Add(self.firstBtn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.firstBtn, 0, wx.ALIGN_BOTTOM, 0)
     
 
     self.prevBtn = GenBitmapButton(self,
       bitmap=images.getPreviousBitmap(), name="Previous", style=border_style)
     self.prevBtn.Bind(wx.EVT_BUTTON, self.onPrev)
-    audioBarSizer.Add(self.prevBtn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.prevBtn, 0, wx.ALIGN_BOTTOM, 0)
     
 
     # create play/pause toggle button
@@ -173,93 +181,107 @@ class MediaPanel(MyPanel):
     self.playPauseBtn.SetBitmapSelected(images.getPauseBitmap())
     
     self.playPauseBtn.Bind(wx.EVT_BUTTON, self.onPlay)
-    audioBarSizer.Add(self.playPauseBtn, 0, wx.LEFT, 0)
+#    self.playPauseBtn.SetBackgroundColour(self.bgcolor)
+    audioBarSizer.Add(self.playPauseBtn, 0, wx.ALIGN_BOTTOM, 0)
     
 
     self.stopBtn = GenBitmapButton(self, bitmap=images.getStopBitmap(),
       name="Stop", style=border_style)
     self.stopBtn.Bind(wx.EVT_BUTTON, self.onStop)
-    audioBarSizer.Add(self.stopBtn, 0, wx.LEFT, 0)
+#    self.stopBtn.SetBackgroundColour(self.bgcolor)
+    audioBarSizer.Add(self.stopBtn, 0, wx.ALIGN_BOTTOM, 0)
 
 
     self.nextBtn = GenBitmapButton(self, bitmap=images.getNextBitmap(),
       name="Next", style=border_style)
     self.nextBtn.Bind(wx.EVT_BUTTON, self.onNext)
-    audioBarSizer.Add(self.nextBtn, 0, wx.LEFT, 0)
+#    self.nextBtn.SetBackgroundColour(self.bgcolor)
+    audioBarSizer.Add(self.nextBtn, 0, wx.ALIGN_BOTTOM, 0)
 
     self.lastBtn = GenBitmapButton(self,
       bitmap=images.getLastBitmap(), name="Last", style=border_style)
     self.lastBtn.SetToolTipString("Last")
 #    self.lastBtn.Bind(wx.EVT_BUTTON, self.onLast)
-    audioBarSizer.Add(self.lastBtn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.lastBtn, 0, wx.ALIGN_BOTTOM, 0)
 
     audioBarSizer.Add((14,24), 0, wx.EXPAND)
 
     self.keep_btn = GenBitmapButton(self, bitmap=images.getThumbsUpBitmap(), 
       name='keep', style=border_style)
-    self.keep_btn.SetToolTipString("Keep")
-    audioBarSizer.Add(self.keep_btn, 0, wx.LEFT, 0)
+    self.keep_btn.SetToolTipString("move to KEEP")
+    audioBarSizer.Add(self.keep_btn, 0, wx.ALIGN_BOTTOM, 0)
+    self.keep_btn.Bind(wx.EVT_BUTTON, self.onMoveToKeep)
 
     self.review_later_btn = GenBitmapButton(self,
       bitmap=images.getReviewLaterBitmap(), name='review_later', style=border_style)
     self.review_later_btn.SetToolTipString("Review Later")
-    audioBarSizer.Add(self.review_later_btn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.review_later_btn, 0, wx.ALIGN_BOTTOM, 0)
+    self.review_later_btn.Bind(wx.EVT_BUTTON, self.onMoveToReview)
 
     self.move_to_other_btn = GenBitmapButton(self,
       bitmap=images.getMoveToOtherBitmap(), name='move_to_other', style=border_style)
     self.move_to_other_btn.SetToolTipString("Move to Other")
-    audioBarSizer.Add(self.move_to_other_btn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.move_to_other_btn, 0, wx.ALIGN_BOTTOM, 0)
+    self.move_to_other_btn.Bind(wx.EVT_BUTTON, self.onMoveToOther)
 
     self.removeBtn = GenBitmapButton(self, bitmap=images.getTrashBitmap(),
       name='remove', style=border_style)
     self.removeBtn.SetToolTipString("Remove")
-    self.removeBtn.Bind(wx.EVT_BUTTON, self.onRemoveFile)
-    audioBarSizer.Add(self.removeBtn, 0, wx.LEFT, 0)
+    audioBarSizer.Add(self.removeBtn, 0, wx.ALIGN_BOTTOM, 0)
+    self.removeBtn.Bind(wx.EVT_BUTTON, self.onMoveToRemove)
 
-    audioBarSizer.Add((14,24), 0, wx.EXPAND)
+    audioBarSizer.Add((64,24), 1, wx.EXPAND)
+
+
+    #audioBarSizer.AddStretchSpacer(1)
+
+    rateGroup = wx.BoxSizer(wx.VERTICAL)
+
+    self.rate_label_e = wx.StaticText(self, -1, ' RATE ', pos=wx.DefaultPosition,
+      size=(48,24), style=wx.ALIGN_CENTER)
+
+    rateGroup.Add(self.rate_label_e, 0, wx.FIXED_MINSIZE|wx.ALIGN_CENTER)
+
+    rateGroup.Add(self.rateBar, 0, wx.FIXED_MINSIZE|wx.ALIGN_CENTER)
+
+    rateButtonsGroup = wx.BoxSizer(wx.HORIZONTAL)
 
     self.slowerBtn = GenBitmapButton(self,
       bitmap=images.getSlowerBitmap(), name="Slower", style=border_style)
     self.slowerBtn.SetToolTipString("Slower")
-#    self.slowerBtn.Bind(wx.EVT_BUTTON, self.onSlower)
-    audioBarSizer.Add(self.slowerBtn, 0, wx.LEFT, 0)
+    self.slowerBtn.Bind(wx.EVT_BUTTON, self.onSlower)
+    rateButtonsGroup.Add(self.slowerBtn, 0, wx.FIXED_MINSIZE|wx.ALIGN_BOTTOM, 0)
+
+    self.rate_label = wx.StaticText(self, -1, str(self.currentRate),
+      pos=wx.DefaultPosition, size=(48,24), style=wx.ALIGN_CENTER)
+
+    rateButtonsGroup.Add(self.rate_label, 0,
+      wx.ALIGN_CENTER|wx.SOUTH|wx.NORTH, 4)
+      #wx.ALIGN_CENTER|wx.ALIGN_CENTER_VERTICAL)
 
     self.fasterBtn = GenBitmapButton(self,
       bitmap=images.getFasterBitmap(), name="Faster", style=border_style)
+
     self.fasterBtn.SetToolTipString("Faster")
-#    self.fasterBtn.Bind(wx.EVT_BUTTON, self.onFaster)
-    audioBarSizer.Add(self.fasterBtn, 0, wx.LEFT, 0)
+    self.fasterBtn.Bind(wx.EVT_BUTTON, self.onFaster)
+    rateButtonsGroup.Add(self.fasterBtn, 0, wx.ALIGN_BOTTOM, 0)
 
+    rateGroup.Add(rateButtonsGroup, 0,
+      wx.FIXED_MINSIZE|wx.ALIGN_BOTTOM|wx.ALIGN_CENTER)
 
-    audioBarSizer.Add((14,24), 0, wx.EXPAND)
+    audioBarSizer.Add(rateGroup, 0, wx.FIXED_MINSIZE|wx.ALIGN_TOP|wx.ALIGN_RIGHT, 0)
+
+    audioBarSizer.Add((64,24), 1, wx.EXPAND)
+
+    self.rate_label.Bind(wx.EVT_LEFT_DCLICK, self.onResetRate)
+    self.rate_label_e.Bind(wx.EVT_LEFT_DCLICK, self.onResetRate)
+
+    # XXX-TODO add notes to help or somewhere letting people know that double
+    # clicking resets the rate to 1.0
 
     return audioBarSizer
           
-  def onRemoveFile(self, evt):
-    pass
-
-  def onKeepFile(self, evt):
-    pass
-
-  def onMoveFileToReview(self, evt):
-    pass
-
   #----------------------------------------------------------------------
-  def buildPrevButton(self):
-    pass
-
-  def buildPlayButton(self):
-    pass
-
-  def buildPauseButton(self):
-    pass
-
-  def buildStopButton(self):
-    pass
-
-  def buildNextButton(self):
-    pass
-    pass
 
   def getRateBar(self):
     if not self.rate_bar:
@@ -286,35 +308,20 @@ import wx.lib.buttons  as  buttons
                  minValue=1,
                  maxValue=16,
                  pos=wx.DefaultPosition,
-                 size=(160, -1), 
-                 style=wx.SL_VERTICAL | wx.SL_AUTOTICKS,
-                 #style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
+                 #size=(-1, 160), 
+                 size=(144, -1), 
+                 #style=wx.SL_VERTICAL | wx.SL_AUTOTICKS,
+                 style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
                  name="Rate Bar"
     )
     # Frequency and Position
-    self.rate_bar.SetTickFreq(4, 16)
+    self.rate_bar.SetTickFreq(4, 12)
     self.rate_bar.SetMin(1)
 #    self.rate_bar.SetValue(self.currentRate*4)
     self.rate_bar.Bind(wx.EVT_SLIDER, self.onSetRate)
-    self.rate_bar.SetThumbLength(200)
+#    self.rate_bar.SetThumbLength(2)
   rateBar=property(getRateBar, setRateBar)
-  #----------------------------------------------------------------------
-  def onSetRate(self, event):
-    """
-    Sets the rate of the music player
-    """
-    rate = self.rateBar.GetValue()
-    self.log.debug('retrieved a value of : %s' % rate)
-    # resetting rate
-    self.log.debug('type: %s' % type(rate))
-    rate = float(rate)/4
-    self.log.debug('rate now set to : %s' % rate)
-    self.currentRate = rate
-    self.rate_label.SetLabel("Rate: %s " % rate)
-    self.log.debug("setting rate to: %s" % int(self.currentRate))
-    self.mediaPlayer.SetPlaybackRate(self.currentRate)
-  
-  #----------------------------------------------------------------------
+
   def getVolumeBar(self):
     if not self.volume_bar:
       self.setVolumeBar()
@@ -351,39 +358,147 @@ import wx.lib.buttons  as  buttons
     self.volume_bar.Bind(wx.EVT_SLIDER, self.onSetVolume)
     self.volume_bar.SetThumbLength(2)
   volumeBar=property(getVolumeBar, setVolumeBar)
+  #----------------------------------------------------------------------
 
-  def buildBtn(self, btnDict, sizer):
-    """
-    # XXX-FINDME
-    """
-    bmp = btnDict['bitmap']
-    handler = btnDict['handler']
-        
-    img = wx.Bitmap(os.path.join(bitmapDir, bmp))
-    btn = buttons.GenBitmapButton(self, bitmap=img, name=btnDict['name'])
-    btn.SetInitialSize()
-    btn.Bind(wx.EVT_BUTTON, handler)
-    sizer.Add(btn, 0, wx.LEFT, 3)
-    sizer.Add((4,48), 0, wx.EXPAND)
+  def moveFileToTarget(self, target): # (event helper)
     
+    current_state = self.mediaPlayer.State
+    if self.frame.current_file.folder == target:
+      return
+    else:
+
+      offset = self.playbackSlider.GetValue()
+      self.mediaPlayer.Stop()
+
+      self.playPauseBtn.SetToggle(False)
+
+      self.playPauseBtn.Enable(False)
+      target_path = os.path.abspath( os.path.join( self.frame.project_path,
+        target))
+
+      new_path = self.frame.current_file.moveFile(target_path)
+      self.frame.current_file.rebuild(new_path)
+      self.frame.lp.rebuildTree()
+      self.frame.showCurrentFile()
+      
+      self.playPauseBtn.Enable(True)
+      if current_state == WM.MEDIASTATE_PLAYING:
+        self.playPauseBtn.SetToggle(True)
+        self.mediaPlayer.Play()
+        self.mediaPlayer.Seek(offset)
+      elif current_state == WM.MEDIASTATE_PAUSED:
+        self.mediaPlayer.Seek(offset)
+        self.mediaPlayer.Pause()
+    return
+
+  def onSlower(self, evt):
+    rate = self.rateBar.GetValue()
+    self.log.debug('retrieved a value of : %s' % rate)
+    rate = float(rate)/4
+    self.log.debug('rate now set to : %s' % rate)
+    rate = rate - 0.25
+    self.log.debug('rate recalculated to : %s' % rate)
+    if rate <= 0.25: rate = 0.25
+    self.currentRate = rate
+    self.rate_label.SetLabel("%s" % rate)
+    self.log.debug("setting rate to: %s" % float(self.currentRate))
+    self.rateBar.SetValue(rate*4)
+    self.mediaPlayer.SetPlaybackRate(self.currentRate)
+
+  def onResetRate(self, evt):
+    rate = 1
+    self.currentRate = rate
+    self.rate_label.SetLabel("%s" % rate)
+    self.log.debug("setting rate to: %s" % float(self.currentRate))
+    self.rateBar.SetValue(rate*4)
+    self.mediaPlayer.SetPlaybackRate(self.currentRate)
+
+  def onFaster(self, evt):
+    rate = self.rateBar.GetValue()
+    self.log.debug('retrieved a value of : %s' % rate)
+    rate = float(rate)/4
+    self.log.debug('rate now set to : %s' % rate)
+    rate = rate + 0.25
+    if rate >= 4.0: rate = 4.0
+    self.currentRate = rate
+    self.rate_label.SetLabel("%s" % rate)
+    self.log.debug("setting rate to: %s" % float(self.currentRate))
+    self.rateBar.SetValue(rate*4)
+    self.mediaPlayer.SetPlaybackRate(self.currentRate)
+
+  def onMoveToKeep(self, evt):
+    self.moveFileToTarget('to-keep')
+
+  def onMoveToOther(self, evt):
+    self.moveFileToTarget('other')
+
+  def onMoveToRemove(self, evt):
+    self.moveFileToTarget('to-remove')
+
+  def onMoveToReview(self, evt):
+    self.moveFileToTarget('to-review')
+
+  def onSetRate(self, event):
+    """
+    Sets the rate of the music player
+    """
+    rate = self.rateBar.GetValue()
+    self.log.debug('retrieved a value of : %s' % rate)
+    # resetting rate
+    self.log.debug('type: %s' % type(rate))
+    rate = float(rate)/4
+    self.log.debug('rate now set to : %s' % rate)
+    self.currentRate = rate
+    self.rate_label.SetLabel("%s" % rate)
+    self.log.debug("setting rate to: %s" % int(self.currentRate))
+    self.mediaPlayer.SetPlaybackRate(self.currentRate)
+  
+  #----------------------------------------------------------------------
+
+  def disableFileButtons(self):
+    self.move_to_other_btn.Enable(False)
+    self.keep_btn.Enable(False)
+    self.review_later_btn.Enable(False)
+    self.removeBtn.Enable(False)
+
+  def enableFileButtons(self):
+    self.move_to_other_btn.Enable(True)
+    self.keep_btn.Enable(True)
+    self.review_later_btn.Enable(True)
+    self.removeBtn.Enable(True)
 
   def _on_options(self, evt):
     self.frame._options_frame.Show()
-
     
   #----------------------------------------------------------------------
   def loadMusic(self, musicFile):
     """"""
     if not self.mediaPlayer.Load(musicFile):
+      self.playPauseBtn.Enable(False)
+      self.disableFileButtons()
       wx.MessageBox("Unable to load %s: Unsupported format?" % path,
               "ERROR",
               wx.ICON_ERROR | wx.OK)
     else:
+      self.enableFileButtons()
+      self.playPauseBtn.Enable(True)
       self.mediaPlayer.SetInitialSize()
       self.GetSizer().Layout()
-      self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
-      self.playPauseBtn.Enable(True)
-      
+      if not self.mediaPlayer.Play():
+        pass
+      else:
+        self.mediaPlayer.SetInitialSize()
+        self.GetSizer().Layout()
+        self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
+
+        length = self.mediaPlayer.Length()
+        int_round_len = int(round(length))
+        secs =  int_round_len/ 10000
+        ticks = int(round(secs))/5
+        self.playbackSlider.SetTickFreq(ticks*1000,1)
+
+
+
   #----------------------------------------------------------------------
   def onNext(self, event):
     """
@@ -415,6 +530,11 @@ import wx.lib.buttons  as  buttons
       self.mediaPlayer.SetInitialSize()
       self.GetSizer().Layout()
       self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
+      length = self.mediaPlayer.Length()
+      int_round_len = int(round(length))
+      secs =  int_round_len/ 10000
+      ticks = int(round(secs))/5
+      self.playbackSlider.SetTickFreq(ticks*1000,1)
       
     event.Skip()
   
@@ -433,6 +553,32 @@ import wx.lib.buttons  as  buttons
     """
     offset = self.playbackSlider.GetValue()
     self.mediaPlayer.Seek(offset)
+
+  #----------------------------------------------------------------------
+  def onToggleMute(self, event):
+    """
+    Sets the volume of the music player
+    """
+    global log
+    log = self.log
+
+    if self.Muted:
+      # put back
+      self.currentVolume = self.mute_volume
+
+      self.volumeBar.SetValue( self.currentVolume*100 )
+      
+      self.volume_icon.toggleVolume(self.currentVolume*100)
+      self.mediaPlayer.SetVolume(self.currentVolume)
+      self.toggleMute()
+
+    else:
+      self.currentVolume = float(self.volumeBar.GetValue())/100
+      self.mute_volume = self.currentVolume # to set back later
+      self.mediaPlayer.SetVolume(0)
+      self.volume_icon.toggleVolume(0)
+      self.volumeBar.SetValue(0)
+      self.toggleMute()
     
   #----------------------------------------------------------------------
   def onSetVolume(self, event):
@@ -440,6 +586,9 @@ import wx.lib.buttons  as  buttons
     Sets the volume of the music player
     """
     global log
+    if self.Muted:
+      self.set_muted(False)
+
     log = self.log
     self.currentVolume = float(self.volumeBar.GetValue())/100
     log.debug("setting volume to: %s" % self.currentVolume)
@@ -453,6 +602,14 @@ import wx.lib.buttons  as  buttons
     """
     self.mediaPlayer.Stop()
     self.playPauseBtn.SetToggle(False)
+
+    print('time: %s' % 
+      datetime.datetime.strftime(
+        datetime.datetime.utcfromtimestamp(
+          self.mediaPlayer.Length()/1000),
+        "%M:%S"
+      )
+    )
     
   #----------------------------------------------------------------------
   def onTimer(self, event):
@@ -461,6 +618,15 @@ import wx.lib.buttons  as  buttons
     """
     offset = self.mediaPlayer.Tell()
     self.playbackSlider.SetValue(offset)
+    '''
+    self.playbackSlider.SetLabel(
+      datetime.datetime.strftime(
+        datetime.datetime.utcfromtimestamp(
+          self.mediaPlayer.Length()/1000),
+        "%M:%S"
+      )
+    )
+    '''
 
 ########################################################################
 

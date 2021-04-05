@@ -10,6 +10,10 @@ import wx
 
 class LogFrame(wx.Frame):
 
+  @property
+  def CONFIG(self):
+    return CONFIG
+
   def __init__(self, parent, log, title, pos=(-1,-1), size=(1000,600),
     style=wx.DEFAULT_FRAME_STYLE):
 #    style=wx.MINIMIZE_BOX | wx.CLOSE_BOX | wx.MAXIMIZE_BOX | wx.SYSTEM_MENU | wx.CAPTION | wx.DOUBLE_BORDER):

@@ -2,9 +2,6 @@
 # encoding=ISO-8859-1
 import wx
 from gui.main_frame import MainFrame
-import test
-
-
 
 class MyApp(wx.App):
   def OnInit(self):

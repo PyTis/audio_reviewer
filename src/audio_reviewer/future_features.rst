@@ -17,6 +17,10 @@ audio files into.
 * In the program settings, there could be a checkbox that basically says
 "Automatically open last project when program starts"
 
+* add actions menu, then add within it "move to KEEP", "move to REVIEW", "move
+to REMOVE", and "move to OTHER" menu items, so that hot-keys can be binded, to
+these actions.
+
 
 Bugs / Known Issues
 -------------------
@@ -40,6 +44,9 @@ with :
 https://discuss.wxpython.org/t/action-on-ctrl-enter-in-wx-textctrl-in-msw/29217/6
 
 
+More Windows/Controls wx.InfoBar
+Show Error messages with the wx.InfoBar
+
   def OnKeyDown(self, event):
     keycode = event.GetKeyCode ( )
     controlDown = event.CmdDown ( )
@@ -54,3 +61,19 @@ https://discuss.wxpython.org/t/action-on-ctrl-enter-in-wx-textctrl-in-msw/29217/
         return   # eat keystroke
 
     # pass all other keys
+
+
+        box = wx.StaticBox(self, -1, "This is a wx.StaticBox")
+        bsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        t = wx.StaticText(self, -1, "Controls placed \"inside\" the box are really its siblings")
+        bsizer.Add(t, 0, wx.TOP|wx.LEFT, 10)
+
+
+        border = wx.BoxSizer()
+        border.Add(bsizer, 1, wx.EXPAND|wx.ALL, 25)
+        self.SetSizer(border)
+
+
+
+https://github.com/Metallicow/wxPython-Sample-Apps-and-Demos/tree/master/111_Miscellaneous/DragScroller

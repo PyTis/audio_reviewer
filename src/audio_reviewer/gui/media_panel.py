@@ -13,6 +13,16 @@ from gui.panel import MyPanel
 
 import images
 
+def convert(i):
+  if i >= 86400000:
+    raise Exception("File is too large to load, it's playtime is longer " \
+      "than an entire day.")
+    return
+  elif i >= 3600000:
+    return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(i/1000), "%H:%M:%S")
+  else:
+    return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(i/1000), "%M:%S")
+
 
 class SoundIcon(wx.StaticBitmap):
   
@@ -98,7 +108,6 @@ class MediaPanel(MyPanel):
     # create playback slider
 
     #self.playbackSlider = AGWSlider(self, size=wx.DefaultSize)
-    media_panel_x, media_panel_y= self.GetSize()
         
     #audioBarSizer = wx.BoxSizer(wx.HORIZONTAL)
     # Create sizers
@@ -107,15 +116,30 @@ class MediaPanel(MyPanel):
     c_sizer = wx.BoxSizer(wx.HORIZONTAL)
     control_button_sizer = self.buildAudioBar()
 
-    self.playbackSlider = wx.Slider(self, size=wx.DefaultSize,
-      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS)
 
+    self.currentPos = wx.StaticText(self, -1, '0:00', pos=wx.DefaultPosition,
+      size=(48, 24), style=wx.ALIGN_RIGHT)
+
+    self.currentLen = wx.StaticText(self, -1, ' 0:00 ', pos=wx.DefaultPosition,
+      size=(48,24), style=wx.ALIGN_LEFT)
+
+    playback_sizer  = wx.BoxSizer(wx.HORIZONTAL)
+
+    self.playbackSlider = wx.Slider(self, size=wx.DefaultSize,
+      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
     self.playbackSlider.SetThumbLength(1000)
     self.Bind(wx.EVT_SLIDER, self.onSeek, self.playbackSlider)
-        
+    
+    playback_sizer.Add(self.currentPos, 0,
+      wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL|wx.FIXED_MINSIZE)
+    playback_sizer.Add(self.playbackSlider, 1,
+      wx.ALIGN_CENTER|wx.ALIGN_TOP|wx.EXPAND|wx.ALL)
+    playback_sizer.Add(self.currentLen, 0,
+      wx.ALIGN_LEFT|wx.ALIGN_CENTER_VERTICAL|wx.FIXED_MINSIZE)
+
     # layout widgets
 #    b_sizer.Add((-1,24), 0, wx.EXPAND) # Spacer | spacer
-    b_sizer.Add(self.playbackSlider, 1, wx.ALL|wx.EXPAND|wx.ALIGN_TOP)
+    b_sizer.Add(playback_sizer, 1, wx.ALL|wx.EXPAND|wx.ALIGN_TOP)
 #    b_sizer.AddStretchSpacer()
 
     c_sizer.Add(control_button_sizer, 1, wx.ALIGN_BOTTOM|wx.ALIGN_LEFT|wx.SOUTH|wx.EAST, 5)
@@ -141,8 +165,8 @@ class MediaPanel(MyPanel):
     a_sizer.Add(b_sizer, 1, wx.ALL|wx.EXPAND|wx.ALIGN_TOP) # |wx.NORTH|wx.SOUTH|wx.EAST | wx.WEST)
     a_sizer.Add(volumeSizerUD, 0, wx.FIXED_MINSIZE, 2)
 
-#    self.mediaPlayer.ShowPlayerControls(True)
-    self.mediaPlayer.ShowPlayerControls(wx.media.MEDIACTRLPLAYERCONTROLS_DEFAULT)
+    self.mediaPlayer.ShowPlayerControls(True)
+#    self.mediaPlayer.ShowPlayerControls(wx.media.MEDIACTRLPLAYERCONTROLS_DEFAULT)
 
     self.SetSizer(a_sizer)
     self.Layout()
@@ -363,6 +387,7 @@ import wx.lib.buttons  as  buttons
   def moveFileToTarget(self, target): # (event helper)
     
     current_state = self.mediaPlayer.State
+    
     if self.frame.current_file.folder == target:
       return
     else:
@@ -480,24 +505,27 @@ import wx.lib.buttons  as  buttons
               "ERROR",
               wx.ICON_ERROR | wx.OK)
     else:
+      # ALL 4 REQURES are required to get the file length in time
+      self.mediaPlayer.Stop() # REQUIRED HERE 
       self.enableFileButtons()
       self.playPauseBtn.Enable(True)
       self.mediaPlayer.SetInitialSize()
+      self.mediaPlayer.Play() # REQUIRED HERE
       self.GetSizer().Layout()
-      if not self.mediaPlayer.Play():
-        pass
-      else:
-        self.mediaPlayer.SetInitialSize()
-        self.GetSizer().Layout()
-        self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
+      time.sleep(1) # REQUIRED HERE
+      self.mediaPlayer.Play() # REQUIRED HERE
+      # ALL 4 REQURES are required to get the file length in time
 
-        length = self.mediaPlayer.Length()
-        int_round_len = int(round(length))
-        secs =  int_round_len/ 10000
-        ticks = int(round(secs))/5
-        self.playbackSlider.SetTickFreq(ticks*1000,1)
+      self.currentLen.SetLabel(convert( self.mediaPlayer.Length()) )
+      length = self.mediaPlayer.Length()
+      int_round_len = int(round(length))
+      secs =  int_round_len/ 10000
+      ticks = int(round(secs))/10
+      self.playbackSlider.SetTickFreq(ticks*1000,1)
+      self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
 
-
+      self.mediaPlayer.Play() # THIS IS THE ONE THAT PLAYS THE FILE
+#      self.mediaPlayer.Refresh()
 
   #----------------------------------------------------------------------
   def onNext(self, event):
@@ -529,13 +557,16 @@ import wx.lib.buttons  as  buttons
     else:
       self.mediaPlayer.SetInitialSize()
       self.GetSizer().Layout()
-      self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
-      length = self.mediaPlayer.Length()
-      int_round_len = int(round(length))
-      secs =  int_round_len/ 10000
-      ticks = int(round(secs))/5
-      self.playbackSlider.SetTickFreq(ticks*1000,1)
+      #self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
+      self.playbackSlider.SetMin(0)
+      self.playbackSlider.SetMax(self.mediaPlayer.Length())
       
+      ticks = (int(round(int(round(self.mediaPlayer.Length())) / 10000)) / 10)*1000
+      self.playbackSlider.SetTickFreq(ticks,1)
+      
+      self.currentPos.SetLabel(convert( self.playbackSlider.GetValue()) )
+      self.currentLen.SetLabel(convert( self.mediaPlayer.Length()) )
+    
     event.Skip()
   
   #----------------------------------------------------------------------
@@ -543,7 +574,7 @@ import wx.lib.buttons  as  buttons
     """
     Not implemented!
     """
-    pass
+    return self.onFutureFeature(event)
   
   #----------------------------------------------------------------------
   def onSeek(self, event):
@@ -602,14 +633,8 @@ import wx.lib.buttons  as  buttons
     """
     self.mediaPlayer.Stop()
     self.playPauseBtn.SetToggle(False)
+    self.currentPos.SetLabelText("0:00")
 
-    print('time: %s' % 
-      datetime.datetime.strftime(
-        datetime.datetime.utcfromtimestamp(
-          self.mediaPlayer.Length()/1000),
-        "%M:%S"
-      )
-    )
     
   #----------------------------------------------------------------------
   def onTimer(self, event):
@@ -618,15 +643,9 @@ import wx.lib.buttons  as  buttons
     """
     offset = self.mediaPlayer.Tell()
     self.playbackSlider.SetValue(offset)
-    '''
-    self.playbackSlider.SetLabel(
-      datetime.datetime.strftime(
-        datetime.datetime.utcfromtimestamp(
-          self.mediaPlayer.Length()/1000),
-        "%M:%S"
-      )
-    )
-    '''
+
+    if offset and offset > 0:
+      self.currentPos.SetLabel(convert( offset ) )
 
 ########################################################################
 

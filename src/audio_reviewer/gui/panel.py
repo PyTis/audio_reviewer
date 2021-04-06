@@ -1,5 +1,6 @@
 # Built In
 import os, sys
+import datetime
 from subprocess import Popen
 from distutils.dir_util import copy_tree
 
@@ -30,6 +31,53 @@ lib/util.py
 gui/panel.py
 gui/main_frame.py    
 """
+
+class Time24(object):
+  _milliseconds = 0
+
+  def set_milliseconds(self, ms):
+    self._milliseconds = ms
+  def get_milliseconds(self):
+    return self._milliseconds
+  milliseconds=property(get_milliseconds, set_milliseconds)
+
+  def __init__(self, value=None):
+    if ':' in value:
+      self.milliseconds = self.HMS_to_miliseconds(value)
+    else:
+      self.milliseconds = value
+
+  def HMS_to_miliseconds(sefl, string):
+    """
+    string as HOUR:MINUTE:SECONDS
+    """
+    hours, minutes, seconds = (["0", "0"] + string.split(":"))[-3:]
+    hours = int(hours)
+    minutes = int(minutes)
+    seconds = float(seconds)
+    milliseconds = int(3600000 * hours + 60000 * minutes + 1000 * seconds)
+    return milliseconds
+
+  def toHMS(self):
+    if self.milliseconds >= 86400000:
+      raise Exception("File is too large to load, it's playtime is longer " \
+        "than an entire day.")
+      return
+    else:
+      return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
+        self.milliseconds/1000), "%H:%M:%S")
+
+  def __str__(self):
+    if self.milliseconds >= 86400000:
+      raise Exception("File is too large to load, it's playtime is longer " \
+        "than an entire day.")
+      return
+    elif self.milliseconds >= 3600000:
+      return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
+        self.milliseconds/1000), "%H:%M:%S")
+    else:
+      return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
+        self.milliseconds/1000), "%M:%S")
 
 class MyScrolledPanel(scrolled.ScrolledPanel):
 
@@ -411,31 +459,41 @@ class CenterPane(MyPanel):
     self.time24 = masked.TimeCtrl(self, -1, name="Bookmark", fmt24hr=True,
       spinButton = spin2)
     self.time24.SetSize( (66,-1) )
+    self.time24.SetToolTipString('HOURS : MINUTES : SECONDS')
     first_row_sizer.Add(bookmark, 20, wx.ALL|wx.ALIGN_LEFT|wx.ALIGN_CENTER_VERTICAL,2)
+
 
     first_row_sizer.Add(self.time24, 15, wx.FIXED_MINSIZE|wx.ALIGN_CENTER_VERTICAL, 2)
 
     first_row_sizer.Add(spin2, 5, wx.EXPAND|wx.ALL, 2)
 
+    first_row_sizer.Add((10,22), 0, wx.EXPAND|wx.ALL) # Spacer, 
+
     self.captureBtn = GenBitmapButton(self,
       bitmap=images.getClockBitmap(), name="Capture", style=border_style)
     self.captureBtn.SetToolTipString("Grab Timestamp")
     self.captureBtn.Bind(wx.EVT_BUTTON, self.onGrabTime)
-    first_row_sizer.Add(self.captureBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
+    first_row_sizer.Add(self.captureBtn, 0, wx.EXPAND|wx.ALL) 
 
     self.insertBtn = GenBitmapButton(self,
       bitmap=images.getPlusBitmap(), name="Insert", style=border_style)
     self.insertBtn.SetToolTipString("Create Bookmark")
     self.insertBtn.Bind(wx.EVT_BUTTON, self.onInsertBookmark)
-    first_row_sizer.Add(self.insertBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
+    first_row_sizer.Add(self.insertBtn, 0, wx.EXPAND|wx.ALL) 
 
     self.removeBtn = GenBitmapButton(self,
       bitmap=images.getMinusBitmap(), name="Remove", style=border_style)
     self.removeBtn.SetToolTipString("Remove Bookmark")
     self.removeBtn.Bind(wx.EVT_BUTTON, self.onRemoveBookmark)
     self.removeBtn.Enable(False)
-    first_row_sizer.Add(self.removeBtn, 0, wx.EXPAND|wx.ALL) # Spacer, 
+    first_row_sizer.Add(self.removeBtn, 0, wx.EXPAND|wx.ALL) 
 
+    self.jumpBtn = GenBitmapButton(self,
+      bitmap=images.getJumpBitmap(), name="Jump", style=border_style)
+    self.jumpBtn.SetToolTipString("Jump to Timestamp")
+    self.jumpBtn.Bind(wx.EVT_BUTTON, self.onJumpToTimestamp)
+    self.jumpBtn.Enable(False)
+    first_row_sizer.Add(self.jumpBtn, 0, wx.EXPAND|wx.ALL) 
 
     '''
     rateButtonsGroup.Add(self.insertBtn, 0, wx.ALIGN_BOTTOM, 0)
@@ -449,8 +507,6 @@ class CenterPane(MyPanel):
     first_row_sizer.Add((24,24), 15, wx.EXPAND|wx.ALL) # Spacer, but later buttons
     first_row_sizer.Add((24,24), 15, wx.EXPAND|wx.ALL) # Spacer, but later buttons
     first_row_sizer.Add((24,24), 15, wx.EXPAND|wx.ALL) # Spacer, but later buttons
-
-
 
     sum_txt = wx.StaticText(self, -1, 'Summary:')
     summary_sizerr = wx.BoxSizer(wx.HORIZONTAL)
@@ -471,7 +527,38 @@ class CenterPane(MyPanel):
     self.Layout()
 #    self.log_text_ctrl.SetSize(self.log_text_ctrl.GetBestSize())
 
+  def setTime(self, player_time_hms):
+    self.time24.SetLabelText(player_time_hms)
+
+  def areYouSure(self, player_time_hms):
+    dlg = wx.MessageDialog(self, 'Are you sure?  This bookmark already has ' \
+      'a time set.  Pulling the current time will overwrite "%s" with "%s".' \
+      % (self.time24.GetLabelText(), player_time_hms),
+         'Overwrite?',
+#         wx.OK | wx.ICON_INFORMATION
+#         wx.ICON_INFORMATION | wx.YES_NO
+#         wx.YES_NO | wx.NO_DEFAULT | wx.CANCEL | wx.ICON_INFORMATION
+         wx.YES_NO | wx.NO_DEFAULT | wx.ICON_INFORMATION
+         )
+    result = dlg.ShowModal()
+    dlg.Destroy()
+    if result == wx.ID_YES:
+      return True
+    else:
+      return False
+
   def onGrabTime(self, evt):
+    label_time = Time24(self.time24.GetValue())
+    player_time_hms = Time24(self.frame.bp.currentPos.GetLabelText()).toHMS()
+
+    if label_time.toHMS() == player_time_hms:
+      evt.Skip()
+      return
+
+    if not label_time.milliseconds or self.areYouSure(player_time_hms):
+      self.setTime(player_time_hms)
+
+  def onJumpToTimestamp(self, evt):
     pass
 
   def onInsertBookmark(self, evt):

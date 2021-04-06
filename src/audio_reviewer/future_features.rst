@@ -17,6 +17,13 @@ audio files into.
 * In the program settings, there could be a checkbox that basically says
 "Automatically open last project when program starts"
 
+* Mute Functionality: I would like to change it so that Mute doesn't set the
+volume to "0", just mutes (stops sound) by making it appear as if the volume
+stayed, but it was muted.  Then, tbe user could adjust the volume down, then
+unmute.  OR, turn the volume up, possibly immediately unmuting, or still
+waiting for the user to unmute.  I'd like to try both ways out and see which
+feels right.
+
 * add actions menu, then add within it "move to KEEP", "move to REVIEW", "move
 to REMOVE", and "move to OTHER" menu items, so that hot-keys can be binded, to
 these actions.

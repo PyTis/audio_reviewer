@@ -20,6 +20,9 @@ def main():
 	'''
 	# get the list of PNG files
 	files = glob.glob('src-images/*.png')
+
+	# get the list of JPEG files
+	files.extend(glob.glob('src-images/*.jpg'))
 	# get the list of ICON files
 	files.extend(glob.glob('src-images/*.ico'))
 	files.sort()

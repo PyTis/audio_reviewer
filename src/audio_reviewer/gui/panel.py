@@ -31,6 +31,49 @@ lib/util.py
 gui/panel.py
 gui/main_frame.py    
 """
+import  wx.lib.newevent
+(OnChangeEvent, EVT_VALUE_CHANGED) = wx.lib.newevent.NewEvent()
+class TextBox(wx.TextCtrl):
+  old_value = u''
+
+  def __init__(self,*args,**kwargs):
+    wx.TextCtrl.__init__(self,*args,**kwargs)
+    self.Bind(wx.EVT_SET_FOCUS, self.gotFocus)
+    self.Bind(wx.EVT_KILL_FOCUS, self.lostFocus)
+
+  def gotFocus(self, evt):
+    evt.Skip()
+    self.old_value = self.GetValue() 
+
+  def lostFocus(self, evt):
+    evt.Skip()
+    if self.GetValue() != self.old_value:
+      evt = OnChangeEvent(old_value=self.old_value, new_value=self.GetValue())
+      wx.PostEvent(self, evt)
+
+def HMStoMS(string):
+  """
+  string as HOUR:MINUTE:SECONDS to milliseconds
+  """
+  hours, minutes, seconds = (["0", "0"] + string.split(":"))[-3:]
+  hours = int(hours)
+  minutes = int(minutes)
+  seconds = float(seconds)
+  milliseconds = int(3600000 * hours + 60000 * minutes + 1000 * seconds)
+  return milliseconds
+
+def MStoHMS(ms):
+  """
+  return milliseconds to string as HOUR:MINUTE:SECONDS
+  """
+  if ms >= 86400000:
+    raise Exception("File is too large to load, it's playtime is longer " \
+      "than an entire day.")
+    return
+  else:
+    return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
+      ms/1000), "%H:%M:%S")
+
 
 class Time24(object):
   _milliseconds = 0
@@ -47,37 +90,18 @@ class Time24(object):
     else:
       self.milliseconds = value
 
-  def HMS_to_miliseconds(sefl, string):
-    """
-    string as HOUR:MINUTE:SECONDS
-    """
-    hours, minutes, seconds = (["0", "0"] + string.split(":"))[-3:]
-    hours = int(hours)
-    minutes = int(minutes)
-    seconds = float(seconds)
-    milliseconds = int(3600000 * hours + 60000 * minutes + 1000 * seconds)
-    return milliseconds
+  def HMS_to_miliseconds(self, string):
+    return HMStoMS(string)
 
   def toHMS(self):
-    if self.milliseconds >= 86400000:
-      raise Exception("File is too large to load, it's playtime is longer " \
-        "than an entire day.")
-      return
-    else:
-      return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
-        self.milliseconds/1000), "%H:%M:%S")
+    return MStoHMS(self.milliseconds)
 
   def __str__(self):
-    if self.milliseconds >= 86400000:
-      raise Exception("File is too large to load, it's playtime is longer " \
-        "than an entire day.")
-      return
-    elif self.milliseconds >= 3600000:
-      return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
-        self.milliseconds/1000), "%H:%M:%S")
-    else:
+    if self.milliseconds < 3600000:
       return datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(
         self.milliseconds/1000), "%M:%S")
+    else:
+      return MStoHMS(self.milliseconds)
 
 class MyScrolledPanel(scrolled.ScrolledPanel):
 
@@ -206,231 +230,20 @@ class MyPanel(wx.Panel):
 
 
 
-from wx.lib.mixins.treemixin import DragAndDrop
-class MyTree(DragAndDrop, wx.TreeCtrl):
-#class MyTree(wx.TreeCtrl):
-#class MyTree(wx.TreeCtrl, DragAndDrop):
-
-  def Collapse(self, *args, **kwargs):
-    return False
-
-  def OnDrop(self, from_item, to_item):
-    log=self.log
-    data1 = self.GetPyData(from_item)
-    log.info(data1)
-    print(data1)
-    data2 = self.GetPyData(to_item)
-    print(data2)
-    log.info(data2)
-
-    log.warn("="*80)
-    log.info(event)
-    log.info(type(event))
-    log.info(dir(event))
-    log.info(event2)
-    log.info(type(event2))
-    log.info(dir(event2))
-    log.warn("="*80)
-
-    return
-    if self.item:
-      self.log.warn("ITEM IS: %s" % self.item)
-
-      result = self.tree.GetPyData(self.item)
-      test = os.path.abspath(result) 
-      self.log.error("TEST: %s" % result)
-
-#      if os.path.isfile(test) and os.path.exists(test): self.frame.bp.loadMusic(test)
-
-    self.log.debug(dir(event))
-
-    event.Skip()
-    return False
-
-  def __init__(self, *args, **kwargs):
-    pos=(0,-50)
-    super(MyTree, self).__init__(*args, **kwargs)
-    self.__collapsing = True
-    self.parent = args[0]
-    self.log = self.parent.log
-
-    il = wx.ImageList(16,16)
-
-    self.folderidx = il.Add(images.getOther16x16Bitmap())
-    self.fileidx = il.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, wx.ART_OTHER, (16,16)))
-
-    self.folderidother = il.Add(images.getTrash16x16Bitmap())
-    self.folderidquestion = il.Add(images.getQuestion16x16Bitmap())
-    self.folderidthumb = il.Add(images.getThumb16x16Bitmap())
-
-    self.AssignImageList(il)
-
-
-  #def addData(self, rpath="C:\\cygwin64\\home\\jlee\\github\\audio_reviewer\src\\store\\"):
-  def addData(self, rpath):
-    global acceptable_extensions
-#    acceptable_extensions = self.parent.frame.acceptable_extensions
-
-    root_path=os.path.abspath(rpath)
-    self.root = self.AddRoot('Store', self.folderidx)
-    ids = {root_path : self.root}
-    self.SetPyData(self.root, root_path)
-
-    self.SetItemHasChildren(ids[root_path])
-
-    for (dirpath, dirnames, filenames) in os.walk(root_path):
-      for dirname in sorted(dirnames):
-          fullpath = os.path.join(dirpath, dirname)
-          
-          if dirname == 'to-keep':
-            self.log.info4('dirname is: %s' % dirname)
-            ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
-              self.folderidthumb)
-          elif dirname == 'to-review':
-            self.log.info4('dirname in to-review is: %s' % dirname)
-            self.review_folder_item = self.AppendItem(ids[dirpath], dirname,
-              self.folderidquestion)
-            ids[fullpath] = self.review_folder_item
-
-          elif dirname == 'to-remove':
-            ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
-              self.folderidother)
-          else:
-            ids[fullpath] = self.AppendItem(ids[dirpath], dirname,
-              self.folderidx)
-
-          self.SetPyData(ids[fullpath], fullpath)
-             
-      for filename in sorted(filenames):
-        sfile = SoundFile(os.path.abspath(os.path.join(dirpath, filename)))
-        if sfile.ext.lower() in acceptable_extensions:
-          child_fpath = os.path.abspath(os.path.join(dirpath, filename))
-          child_file = self.AppendItem(ids[dirpath], filename, self.fileidx)
-          self.SetPyData(child_file, child_fpath)
-
-    self.log.debug(ids)
-    self.Expand(self.review_folder_item)
-
-class LeftPane(MyScrolledPanel):
-  bgcolor='#FFFFFF'
-
-  @property
-  def Project(self):
-    return self.frame.Project
-
-  def reloadTree(self, Project=None):
-    project = Project or self.Project
-    self.tree.DeleteAllItems()
-    self.Refresh()
-    self.tree.addData(project.path)
-    return
-  rebuildTree=reloadTree # alias
-
-  def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
-    style=wx.SIMPLE_BORDER):
-
-    self.frame = frame
-
-    MyScrolledPanel.__init__(self, parent, frame, log, size,
-      pos=wx.DefaultPosition, style=style)
-    self.log=log
-    
-    path_now = self.frame.project_path
-    root_path=os.path.abspath(path_now)
-
-    Bsizer = wx.BoxSizer( wx.VERTICAL)
-
-    self.tree = MyTree(self)
-#    self.tree.dir=root_path
-
-#    self.tree.Expand(self.tree.GetRootItem())
-
-    self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.OnActivate, self.tree)
-    self.Bind(wx.EVT_TREE_SEL_CHANGED, self.OnSelChanged, self.tree)
-#    self.tree.ShowHidden(False)
-#    self.tree.SetDefaultPath(root_path)
-#    self.tree.SetPath(root_path)
-
-#    Tree = self.tree.GetTreeCtrl()
-
-#    Tree.AppendItem(Tree.GetRootItem(), root_path)
-
-    Bsizer.Add(self.tree,1,wx.ALL | wx.EXPAND)
-    self.SetSizer(Bsizer)
- #   self.tree.SetPosition((0, -50))
-    
-  #----------------------------------------------------------------------
-    # Timer moved from MediaPanel to here, because you can only have 1 timer
-    # per Panel, otherwise, the EVT_TIMER is triggered by the other timer, even
-    # though they are uniquely named..... darn.
-    self.timer2 = wx.Timer(self)
-    self.Bind(wx.EVT_TIMER, self.onLoadProject)
-    self.timer2.Start(3)
-  #----------------------------------------------------------------------
-    self.Bind(wx.EVT_ERASE_BACKGROUND, self.onEraseBackground)
-
-  def onEraseBackground(self, evt):
-    dc = evt.GetDC()
-    if not dc:
-      dc = wx.ClientDC(self)
-      rect = self.GetUpdateRegion().GetBox()
-      dc.SetClippingRect(rect)
-
-  def onLoadProject(self, evt):
-    self.timer2.Stop()
-#    self.timer2.Unlink()
-    self.frame.checkSetup()
-
-  def setSoundFile(self, fpath):
-    pass
-
-  def OnSelChanged(self, event):
-    self.item = event.GetItem()
-    self.log.debug("ITEM IS: %s" % self.item)
-
-
-    if self.item:
-      result = self.tree.GetPyData(self.item)
-      test = os.path.abspath(result) 
-      if os.path.isfile(test) and os.path.exists(test):
-        self.frame.bp.mediaPlayer.Stop()
-        self.frame.current_file = SoundFile(test)
-        #self.frame.bp.loadMusic(test)
-
-      if wx.Platform == '__WXMSW__':
-        self.log.debug("BoundingRect: %s\n" %
-                   self.tree.GetBoundingRect(self.item, True))
-
-      #items = self.tree.GetSelections()
-      #print map(self.tree.GetItemText, items)
-    event.Skip()
-
-  def OnActivate(self, event):
-    if self.item:
-      self.log.debug("OnActivate: %s\n" % self.tree.GetItemText(self.item))
-
-  
-  def openProject(self, Project):
-    return self.reloadTree(Project)
-#    self.tree.root_dir=Project.path
-    #path_now = self.frame.project_path or os.curdir
-    path_now = str(Project.path)
-    root_path=os.path.abspath(path_now)
-    self.tree.dir = root_path
-    self.tree.addData(root_path)
-#    self.tree.Expand(self.tree.GetRootItem())
-
-#    self.tree.ShowHidden(False)
-#    self.tree.SetDefaultPath(root_path)
-#    self.tree.SetPath(root_path)
-
-#    Tree = self.tree.GetTreeCtrl()
-
-#    Tree.AppendItem(Tree.GetRootItem(), root_path)
-
-
 class CenterPane(MyPanel):
   bgcolor='#E5E5E5'
+  _current_bookmark=None # str time H:M:S
+
+  def set_current_bookmar(self, bm=None):
+    if bm:
+      self.removeBtn.Enable(True)
+    else:
+      self.removeBtn.Enable(False)
+
+    self._current_bookmark = bm
+  def get_current_bookmark(self):
+    return self._current_bookmark
+  current_bookmark=property(get_current_bookmark, set_current_bookmar)
 
   def __init__(self, parent, frame, log, size, pos=wx.DefaultPosition,
     style=wx.SIMPLE_BORDER):
@@ -456,12 +269,22 @@ class CenterPane(MyPanel):
 
     bookmark = wx.StaticText(self, -1, 'Bookmark Time:')
     spin2 = wx.SpinButton( self, -1, pos=(20, 40), size=(-1,23), style=wx.SP_VERTICAL )
+
     self.time24 = masked.TimeCtrl(self, -1, name="Bookmark", fmt24hr=True,
       spinButton = spin2)
+
     self.time24.SetSize( (66,-1) )
     self.time24.SetToolTipString('HOURS : MINUTES : SECONDS')
+    self.time24.old_valu = '0:00:00'
+    self.time24.Bind(wx.EVT_SET_FOCUS, self.gotTimeFocus)
+    self.time24.Bind(wx.EVT_KILL_FOCUS, self.lostTimeFocus)
+    self.time24.Bind(EVT_VALUE_CHANGED, self.onTime24Changed)
+
+    spin2.Bind(wx.EVT_SPIN, self.onTime24ChangedViaSpin)
+
     first_row_sizer.Add(bookmark, 20, wx.ALL|wx.ALIGN_LEFT|wx.ALIGN_CENTER_VERTICAL,2)
 
+    # XXX-FINDME
 
     first_row_sizer.Add(self.time24, 15, wx.FIXED_MINSIZE|wx.ALIGN_CENTER_VERTICAL, 2)
 
@@ -496,6 +319,14 @@ class CenterPane(MyPanel):
     first_row_sizer.Add(self.jumpBtn, 0, wx.EXPAND|wx.ALL) 
 
     '''
+    self.moreButton = GenBitmapButton(self,
+      bitmap=images.getMoreBitmap(), name="More", style=border_style)
+    self.moreButton.SetToolTipString("Ask Question")
+    self.moreButton.Bind(wx.EVT_BUTTON, self.onAskQuestion)
+    first_row_sizer.Add(self.moreButton, 0, wx.EXPAND|wx.ALL) 
+    '''
+
+    '''
     rateButtonsGroup.Add(self.insertBtn, 0, wx.ALIGN_BOTTOM, 0)
     '''
 
@@ -511,12 +342,19 @@ class CenterPane(MyPanel):
     sum_txt = wx.StaticText(self, -1, 'Summary:')
     summary_sizerr = wx.BoxSizer(wx.HORIZONTAL)
     summary_sizerr.Add(sum_txt, 20, wx.ALL|wx.ALIGN_LEFT|wx.ALIGN_CENTER_VERTICAL, 2)
-    self.summ_text_ctrl = wx.TextCtrl(self, -1, size=(400, -1))#, pos=(20,80))
+    self.summ_text_ctrl = TextBox(self, -1, size=(400, -1))#, pos=(20,80))
+    self.summ_text_ctrl.Bind(EVT_VALUE_CHANGED, self.onSummChanged)
+    self.summ_text_ctrl.Enable(False)
     summary_sizerr.Add(self.summ_text_ctrl, 80, wx.EXPAND|wx.ALL|wx.ALIGN_CENTER_VERTICAL, 2)
 
     desc_txt = wx.StaticText(self, -1, 'Description:')
-    self.desc_text_ctrl = wx.TextCtrl(self, -1, size=(400, 440),# pos=(20,120), 
-      style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+    self.desc_text_ctrl = TextBox(self, -1, size=(400, 440),# pos=(20,120), 
+      style = wx.TE_MULTILINE|wx.HSCROLL)
+    self.desc_text_ctrl.Enable(False)
+    self.desc_text_ctrl.Bind(EVT_VALUE_CHANGED, self.onDescChanged)
+
+
+#textCtrl->Connect(ID_TEXTCTRL1,wxEVT_KILL_FOCUS,(wxObjectEventFunction)&MyFrame::OnKillFocus);
 
     main_sizer.Add(first_row_sizer, 2, wx.EXPAND|wx.ALL|wx.ALIGN_BOTTOM |wx.ALIGN_LEFT)
     main_sizer.Add(summary_sizerr, 2, wx.ALIGN_TOP |wx.ALIGN_LEFT)
@@ -526,20 +364,102 @@ class CenterPane(MyPanel):
     self.SetSizer(border_sizer)
     self.Layout()
 #    self.log_text_ctrl.SetSize(self.log_text_ctrl.GetBestSize())
+    
+  def saveBookmark(self):
+    bookmark_time = self.time24.GetValue()
+    bookmark = {'time' : bookmark_time,
+                'summ' : self.summ_text_ctrl.GetValue(),
+                'desc' : self.desc_text_ctrl.GetValue()
+    }
+    self.frame.Project.addBookmark(self.frame.current_file, bookmark)
+    self.current_bookmark = bookmark_time
+
+    self.frame.lp.loading_project = True
+    self.frame.lp.rebuildTree()
+    self.frame.lp.loading_project = False
+
+  def gotTimeFocus(self, evt):
+    evt.Skip()
+    self.time24.old_value = self.time24.GetValue() 
+
+  def lostTimeFocus(self, evt):
+    evt.Skip()
+    if self.time24.GetValue() != self.time24.old_value:
+      evt = OnChangeEvent(old_value=self.time24.old_value,
+        new_value=self.time24.GetValue())
+      wx.PostEvent(self.time24, evt)
+
+
+  def onAskQuestion(self, evt):
+    ms = HMStoMS(self.time24.GetValue())
+    if ms:
+      self.saveBookmark()
+
+  def onTime24ChangedViaSpin(self, evt):
+    evt.Skip()
+
+    if self.frame.current_file:
+      bookmark_times = self.frame.Project.bookmarksFor(self.frame.current_file).keys()
+    else:
+      bookmark_times = []
+    
+    new_value = self.time24.GetValue()
+
+    if new_value in bookmark_times:
+      self.loadBookmark(new_value)
+    else:
+      if HMStoMS(new_value):
+        self.summ_text_ctrl.Enable(True)
+
+  
+  def onTime24Changed(self, evt):
+    if self.frame.current_file:
+      bookmark_times = self.frame.Project.bookmarksFor(self.frame.current_file).keys()
+    else:
+      bookmark_times = []
+    
+    if evt.new_value in bookmark_times:
+      self.loadBookmark(evt.new_value)
+    else:
+
+      if self.current_bookmark:
+        # okay, this one is tricky, we changed the time on an existing
+        # bookmark, we need to remove the old, and save the new.
+
+        self.frame.Project.removeBookmark(self.frame.current_file,
+          self.current_bookmark)
+        
+        self.saveBookmark()
+
+      else:
+        if HMStoMS(evt.new_value):
+          self.summ_text_ctrl.Enable(True)
+
+  def onSummChanged(self, evt):
+    evt.Skip()
+    if self.current_bookmark:
+      self.saveBookmark()
+    else:
+      self.desc_text_ctrl.Enable(True)
+  
+  def onDescChanged(self, evt):
+    evt.Skip()
+    summary = self.summ_text_ctrl.GetValue().strip()
+    description = self.desc_text_ctrl.GetValue()
+    self.saveBookmark()
 
   def setTime(self, player_time_hms):
     self.time24.SetLabelText(player_time_hms)
+    self.jumpBtn.Enable(True)
 
   def areYouSure(self, player_time_hms):
     dlg = wx.MessageDialog(self, 'Are you sure?  This bookmark already has ' \
       'a time set.  Pulling the current time will overwrite "%s" with "%s".' \
-      % (self.time24.GetLabelText(), player_time_hms),
+      % (self.time24.GetValue(), player_time_hms),
          'Overwrite?',
-#         wx.OK | wx.ICON_INFORMATION
-#         wx.ICON_INFORMATION | wx.YES_NO
-#         wx.YES_NO | wx.NO_DEFAULT | wx.CANCEL | wx.ICON_INFORMATION
          wx.YES_NO | wx.NO_DEFAULT | wx.ICON_INFORMATION
-         )
+    )
+
     result = dlg.ShowModal()
     dlg.Destroy()
     if result == wx.ID_YES:
@@ -547,30 +467,87 @@ class CenterPane(MyPanel):
     else:
       return False
 
+  def grabTime(self):
+    return Time24(self.frame.bp.currentPos.GetLabelText()).toHMS()
+
+# self.removeBtn.Enable(True)
+
+  def onJumpToTimestamp(self, evt):
+    ms = Time24(self.time24.GetValue()).milliseconds
+    self.frame.bp.Seek(ms)
+
+  def loadBookmark(self, bookmark_time):
+    self.current_bookmark = bookmark_time
+    bookmarks = self.frame.Project.bookmarksFor(self.frame.current_file)
+    bookmark = bookmarks[bookmark_time]
+    self.time24.SetValue(bookmark_time)
+    self.summ_text_ctrl.SetValue(bookmark['summ'])
+    self.desc_text_ctrl.SetValue(bookmark['desc'])
+    self.summ_text_ctrl.Enable(True)
+    self.desc_text_ctrl.Enable(True)
+    self.removeBtn.Enable(True)
+    self.jumpBtn.Enable(True)
+
+    self.frame.bp.Seek(Time24(bookmark_time).milliseconds)
+
+  def onRemoveBookmark(self, evt):
+    if self.current_bookmark:
+      self.time24.SetValue('00:00:00')
+      self.summ_text_ctrl.SetValue('')
+      self.desc_text_ctrl.SetValue('')
+      self.removeBtn.Enable(False)
+      self.jumpBtn.Enable(False)
+      self.frame.Project.removeBookmark(self.frame.current_file,
+        self.current_bookmark)
+      self.current_bookmark = None
+      self.frame.lp.loading_project = True
+      self.frame.lp.rebuildTree()
+      self.frame.lp.loading_project = False
+
   def onGrabTime(self, evt):
+    if not self.frame.current_file:
+      return
+
     label_time = Time24(self.time24.GetValue())
-    player_time_hms = Time24(self.frame.bp.currentPos.GetLabelText()).toHMS()
+    player_time_hms = self.grabTime()
+    
+    if self.frame.current_file:
+      bookmark_times = self.frame.Project.bookmarksFor(self.frame.current_file).keys()
+    else:
+      bookmark_times = []
+
+    if player_time_hms in bookmark_times:
+      self.loadBookmark(player_time_hms)
+      return
 
     if label_time.toHMS() == player_time_hms:
+      self.summ_text_ctrl.Enable(True)
       evt.Skip()
       return
 
     if not label_time.milliseconds or self.areYouSure(player_time_hms):
+      self.summ_text_ctrl.Enable(True)
       self.setTime(player_time_hms)
 
-  def onJumpToTimestamp(self, evt):
-    pass
+      if self.current_bookmark:
+
+        self.frame.Project.removeBookmark(self.frame.current_file,
+          self.current_bookmark)
+        
+        self.saveBookmark()
+
+        self.frame.bp.Seek(Time24(self.current_bookmark).milliseconds)
+
 
   def onInsertBookmark(self, evt):
-    pass
-
-  def onRemoveBookmark(self, evt):
-    pass
+    self.current_bookmark = None
+    self.time24.SetValue( '00:00:00' )
+    self.onGrabTime(evt)
+    self.summ_text_ctrl.SetValue('')
+    self.desc_text_ctrl.SetValue('')
+    self.summ_text_ctrl.Enable(True)
+    self.desc_text_ctrl.Enable(False)
 
 class RightPane(MyScrolledPanel):
   bgcolor='#AAAAAA'
-
-class BottomPane(MyPanel):
-  bgcolor='#E5E5E5'
-
 

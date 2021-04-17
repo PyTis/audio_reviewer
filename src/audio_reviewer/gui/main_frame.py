@@ -22,8 +22,9 @@ from ConfigParser import ConfigParser as CP
 # Internal
 from gui.log_frame import LogFrame
 from gui.project_dlg import ProjectDialog
+from gui.left_panel import LeftPane
 from gui.media_panel import MediaPanel
-from gui.panel import LeftPane, RightPane, CenterPane, BottomPane
+from gui.panel import RightPane, CenterPane
 from gui import import_dlg as MDD
 
 from images import getMyIconIcon, getDarkPiSymbolIcon, getFolderMusicIcon
@@ -253,6 +254,12 @@ class MainFrame(wx.Frame):
       self.default_audio_import_directory)
 
     self.currentFolder = sp.GetDocumentsDir()
+
+
+  def write(self):
+    if self.Project.name and self.Project.path:
+      self.Project.write()
+
   #----------------------------------------------------------------------
   def createMenu(self):
     """
@@ -321,21 +328,21 @@ class MainFrame(wx.Frame):
     menu_bar.Append(self.file_menu, '&File')
     #----------------------------------------------------------------------
     self.actions_menu = wx.Menu()
-    self.review_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-&review" folder\tCTRL+1',
-      "Move current file to review Folder")
-    self.Bind(wx.EVT_MENU, self.bp.onMoveToReview, self.review_menu_item)
-
-    self.keep_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-&keep" folder\tCTRL+2',
-      "Move current file to Keep Folder")
+    self.keep_menu_item = self.actions_menu.Append(wx.NewId(),
+      'Move "to-&keep" folder\tCTRL+1', "Move current file to Keep Folder")
     self.Bind(wx.EVT_MENU, self.bp.onMoveToKeep, self.keep_menu_item)
 
-    self.remove_menu_item = self.actions_menu.Append(wx.NewId(), 'Move "to-remo&ve" folder\tCTRL+3',
-      "Move current file to remove Folder")
-    self.Bind(wx.EVT_MENU, self.bp.onMoveToRemove, self.remove_menu_item)
+    self.review_menu_item = self.actions_menu.Append(wx.NewId(),
+      'Move "to-&review" folder\tCTRL+2', "Move current file to review Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToReview, self.review_menu_item)
 
-    self.other_menu_item = self.actions_menu.Append(wx.NewId(), 'Move to "&other" folder\tCTRL+4',
-      "Move current file to Other Folder")
+    self.other_menu_item = self.actions_menu.Append(wx.NewId(),
+      'Move to "&other" folder\tCTRL+3', "Move current file to Other Folder")
     self.Bind(wx.EVT_MENU, self.bp.onMoveToOther, self.other_menu_item)
+
+    self.remove_menu_item = self.actions_menu.Append(wx.NewId(),
+      'Move "to-remo&ve" folder\tCTRL+4', "Move current file to remove Folder")
+    self.Bind(wx.EVT_MENU, self.bp.onMoveToRemove, self.remove_menu_item)
 
 
     menu_bar.Append(self.actions_menu, '&Actions')
@@ -406,13 +413,35 @@ class MainFrame(wx.Frame):
       name = name_or_prj
 
     if str(name).strip() and path.strip():
+      self.cp.current_bookmark = None
+      self.cp.time24.SetValue('00:00:00')
+
+      self.cp.summ_text_ctrl.SetValue('')
+      self.cp.summ_text_ctrl.Enable(False)
+
+      self.cp.desc_text_ctrl.SetValue('')
+      self.cp.desc_text_ctrl.Enable(False)
+
+      self.cp.removeBtn.Enable(False)
+      self.cp.jumpBtn.Enable(False)
+
+      self.bp.mediaPlayer.Stop()
+      self.bp.disableFileButtons()
+      self.bp.playPauseBtn.SetToggle(False)
+      self.bp.playPauseBtn.Enable(False)
+      self.bp.Seek(0)
+      self.bp.currentPos.SetLabel('0:00')
+      self.bp.currentLen.SetLabel('0:00')
+
+      self.lp.loading_project = True
       self.log.info("open project running")
       self.setCurrentProject(name, path)
       self.Project.validateCoreFolders()
-      self.lp.openProject(self.Project)
+      self.lp.openProject()
       self.enableProjectMenus()
       self.resetLastProject()
       self.currentFolder = os.path.abspath(path)
+      self.lp.loading_project = False
     else:
       self.log.debug("could not open project. type of first input " \
         "name_or_prj is: %s, and value is: %s" % ( str(type(name_or_prj)),
@@ -544,6 +573,7 @@ class MainFrame(wx.Frame):
     return onOpenPastItem_event
 
   def OnClose(self, evt):
+    self.write()
     old_mode = self.log.mode 
     self.log.mode='file_only'
     self.log.info("Stopping %s at %s" % (_program_name,prettyNow())) 

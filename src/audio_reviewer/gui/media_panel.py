@@ -127,7 +127,7 @@ class MediaPanel(MyPanel):
 
     self.playbackSlider = wx.Slider(self, size=wx.DefaultSize,
       style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-    self.playbackSlider.SetThumbLength(1000)
+    self.playbackSlider.SetThumbLength(10)
     self.Bind(wx.EVT_SLIDER, self.onSeek, self.playbackSlider)
     
     playback_sizer.Add(self.currentPos, 0,
@@ -232,25 +232,25 @@ class MediaPanel(MyPanel):
 
     self.keep_btn = GenBitmapButton(self, bitmap=images.getThumbsUpBitmap(), 
       name='keep', style=border_style)
-    self.keep_btn.SetToolTipString("move to KEEP")
+    self.keep_btn.SetToolTipString("move to KEEP (CTRL+1)")
     audioBarSizer.Add(self.keep_btn, 0, wx.ALIGN_BOTTOM, 0)
     self.keep_btn.Bind(wx.EVT_BUTTON, self.onMoveToKeep)
 
     self.review_later_btn = GenBitmapButton(self,
       bitmap=images.getReviewLaterBitmap(), name='review_later', style=border_style)
-    self.review_later_btn.SetToolTipString("Review Later")
+    self.review_later_btn.SetToolTipString("Review Later (CTRL+2)")
     audioBarSizer.Add(self.review_later_btn, 0, wx.ALIGN_BOTTOM, 0)
     self.review_later_btn.Bind(wx.EVT_BUTTON, self.onMoveToReview)
 
     self.move_to_other_btn = GenBitmapButton(self,
       bitmap=images.getMoveToOtherBitmap(), name='move_to_other', style=border_style)
-    self.move_to_other_btn.SetToolTipString("Move to Other")
+    self.move_to_other_btn.SetToolTipString("Move to Other (CTRL+3)")
     audioBarSizer.Add(self.move_to_other_btn, 0, wx.ALIGN_BOTTOM, 0)
     self.move_to_other_btn.Bind(wx.EVT_BUTTON, self.onMoveToOther)
 
     self.removeBtn = GenBitmapButton(self, bitmap=images.getTrashBitmap(),
       name='remove', style=border_style)
-    self.removeBtn.SetToolTipString("Remove")
+    self.removeBtn.SetToolTipString("Remove (CTRL+4)")
     audioBarSizer.Add(self.removeBtn, 0, wx.ALIGN_BOTTOM, 0)
     self.removeBtn.Bind(wx.EVT_BUTTON, self.onMoveToRemove)
 
@@ -386,11 +386,13 @@ import wx.lib.buttons  as  buttons
 
   def moveFileToTarget(self, target): # (event helper)
     
+    
     current_state = self.mediaPlayer.State
     
     if self.frame.current_file.folder == target:
       return
     else:
+      self.frame.lp.tree.UnselectAll()
 
       offset = self.playbackSlider.GetValue()
       self.mediaPlayer.Stop()
@@ -401,8 +403,17 @@ import wx.lib.buttons  as  buttons
       target_path = os.path.abspath( os.path.join( self.frame.project_path,
         target))
 
+      old_path = self.frame.current_file.fpath
+      old_folder = self.frame.current_file.folder
+
       new_path = self.frame.current_file.moveFile(target_path)
-      self.frame.current_file.rebuild(new_path)
+      
+      # call rebuild on SoundFile first, so paths will update
+      self.frame.current_file.rebuild(new_path) 
+      # then move on project, so that paths will be correct.
+      self.frame.Project.moveFile(self.frame.current_file, old_path, 
+        old_folder, new_path, new_folder=target)
+
       self.frame.lp.rebuildTree()
       self.frame.showCurrentFile()
       
@@ -414,6 +425,8 @@ import wx.lib.buttons  as  buttons
       elif current_state == WM.MEDIASTATE_PAUSED:
         self.mediaPlayer.Seek(offset)
         self.mediaPlayer.Pause()
+
+    
     return
 
   def onSlower(self, evt):
@@ -525,6 +538,9 @@ import wx.lib.buttons  as  buttons
       self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
 
       self.mediaPlayer.Play() # THIS IS THE ONE THAT PLAYS THE FILE
+      self.playPauseBtn.SetToggle(True)
+
+
 #      self.mediaPlayer.Refresh()
 
   #----------------------------------------------------------------------
@@ -576,14 +592,17 @@ import wx.lib.buttons  as  buttons
     """
     return self.onFutureFeature(event)
   
+  def Seek(self, ms):
+    self.mediaPlayer.Seek(ms)
+    self.playbackSlider.SetValue(ms)
+
   #----------------------------------------------------------------------
   def onSeek(self, event):
     """
     Seeks the media file according to the amount the slider has
     been adjusted.
     """
-    offset = self.playbackSlider.GetValue()
-    self.mediaPlayer.Seek(offset)
+    self.Seek(self.playbackSlider.GetValue())
 
   #----------------------------------------------------------------------
   def onToggleMute(self, event):

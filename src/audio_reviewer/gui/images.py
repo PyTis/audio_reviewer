@@ -11,45 +11,47 @@
 # getBookmarkPinkBitmap, getBookmarkPinkImage, getBookmarkPinkIcon,
 # getBookmarkPurpleData, getBookmarkPurpleBitmap, getBookmarkPurpleImage,
 # getBookmarkPurpleIcon, getBookmarkYellowData, getBookmarkYellowBitmap,
-# getBookmarkYellowImage, getBookmarkYellowIcon, getCatalogsData,
-# getCatalogsBitmap, getCatalogsImage, getCatalogsIcon, getClockData,
-# getClockBitmap, getClockImage, getClockIcon, getDarkPiSymbolData,
-# getDarkPiSymbolBitmap, getDarkPiSymbolImage, getDarkPiSymbolIcon,
-# getFasterData, getFasterBitmap, getFasterImage, getFasterIcon, getFirstData,
-# getFirstBitmap, getFirstImage, getFirstIcon, getFolderData, getFolderBitmap,
-# getFolderImage, getFolderIcon, getFolderGreyData, getFolderGreyBitmap,
-# getFolderGreyImage, getFolderGreyIcon, getFolderGreyOpenData,
-# getFolderGreyOpenBitmap, getFolderGreyOpenImage, getFolderGreyOpenIcon,
-# getFolderMusicData, getFolderMusicBitmap, getFolderMusicImage,
-# getFolderMusicIcon, getGreenBookmarkData, getGreenBookmarkBitmap,
-# getGreenBookmarkImage, getGreenBookmarkIcon, getHeadphonesData,
-# getHeadphonesBitmap, getHeadphonesImage, getHeadphonesIcon, getHeartData,
-# getHeartBitmap, getHeartImage, getHeartIcon, getHeart35x22Data,
-# getHeart35x22Bitmap, getHeart35x22Image, getHeart35x22Icon,
-# getInsertHereData, getInsertHereBitmap, getInsertHereImage,
-# getInsertHereIcon, getJumpData, getJumpBitmap, getJumpImage, getJumpIcon,
-# getJump2Data, getJump2Bitmap, getJump2Image, getJump2Icon,
-# getKyoTuxPhuzionDeviceUSBData, getKyoTuxPhuzionDeviceUSBBitmap,
-# getKyoTuxPhuzionDeviceUSBImage, getKyoTuxPhuzionDeviceUSBIcon, getLastData,
-# getLastBitmap, getLastImage, getLastIcon, getListData, getListBitmap,
-# getListImage, getListIcon, getLiteBlueBookmarkData,
-# getLiteBlueBookmarkBitmap, getLiteBlueBookmarkImage, getLiteBlueBookmarkIcon,
-# getMinusData, getMinusBitmap, getMinusImage, getMinusIcon, getMoreData,
-# getMoreBitmap, getMoreImage, getMoreIcon, getMoveToOtherData,
-# getMoveToOtherBitmap, getMoveToOtherImage, getMoveToOtherIcon, getMusicData,
-# getMusicBitmap, getMusicImage, getMusicIcon, getMusicNoteData,
-# getMusicNoteBitmap, getMusicNoteImage, getMusicNoteIcon, getMyIconData,
-# getMyIconBitmap, getMyIconImage, getMyIconIcon, getMyIconData,
-# getMyIconBitmap, getMyIconImage, getMyIconIcon, getNextData, getNextBitmap,
-# getNextImage, getNextIcon, getOpenData, getOpenBitmap, getOpenImage,
-# getOpenIcon, getOrangeBookmarkData, getOrangeBookmarkBitmap,
-# getOrangeBookmarkImage, getOrangeBookmarkIcon, getOther16x16Data,
-# getOther16x16Bitmap, getOther16x16Image, getOther16x16Icon, getPauseData,
-# getPauseBitmap, getPauseImage, getPauseIcon, getPinkBookmarkData,
-# getPinkBookmarkBitmap, getPinkBookmarkImage, getPinkBookmarkIcon,
-# getPlayData, getPlayBitmap, getPlayImage, getPlayIcon, getPlusData,
-# getPlusBitmap, getPlusImage, getPlusIcon, getPreviousData, getPreviousBitmap,
-# getPreviousImage, getPreviousIcon, getPurpleBookmarkData,
+# getBookmarkYellowImage, getBookmarkYellowIcon, getBwBookmark16x16Data,
+# getBwBookmark16x16Bitmap, getBwBookmark16x16Image, getBwBookmark16x16Icon,
+# getCatalogsData, getCatalogsBitmap, getCatalogsImage, getCatalogsIcon,
+# getClockData, getClockBitmap, getClockImage, getClockIcon,
+# getDarkPiSymbolData, getDarkPiSymbolBitmap, getDarkPiSymbolImage,
+# getDarkPiSymbolIcon, getFasterData, getFasterBitmap, getFasterImage,
+# getFasterIcon, getFirstData, getFirstBitmap, getFirstImage, getFirstIcon,
+# getFolderData, getFolderBitmap, getFolderImage, getFolderIcon,
+# getFolderGreyData, getFolderGreyBitmap, getFolderGreyImage,
+# getFolderGreyIcon, getFolderGreyOpenData, getFolderGreyOpenBitmap,
+# getFolderGreyOpenImage, getFolderGreyOpenIcon, getFolderMusicData,
+# getFolderMusicBitmap, getFolderMusicImage, getFolderMusicIcon,
+# getGreenBookmarkData, getGreenBookmarkBitmap, getGreenBookmarkImage,
+# getGreenBookmarkIcon, getHeadphonesData, getHeadphonesBitmap,
+# getHeadphonesImage, getHeadphonesIcon, getHeartData, getHeartBitmap,
+# getHeartImage, getHeartIcon, getHeart35x22Data, getHeart35x22Bitmap,
+# getHeart35x22Image, getHeart35x22Icon, getInsertHereData,
+# getInsertHereBitmap, getInsertHereImage, getInsertHereIcon, getJumpData,
+# getJumpBitmap, getJumpImage, getJumpIcon, getJump2Data, getJump2Bitmap,
+# getJump2Image, getJump2Icon, getKyoTuxPhuzionDeviceUSBData,
+# getKyoTuxPhuzionDeviceUSBBitmap, getKyoTuxPhuzionDeviceUSBImage,
+# getKyoTuxPhuzionDeviceUSBIcon, getLastData, getLastBitmap, getLastImage,
+# getLastIcon, getListData, getListBitmap, getListImage, getListIcon,
+# getLiteBlueBookmarkData, getLiteBlueBookmarkBitmap, getLiteBlueBookmarkImage,
+# getLiteBlueBookmarkIcon, getLittleBubbleData, getLittleBubbleBitmap,
+# getLittleBubbleImage, getLittleBubbleIcon, getMinusData, getMinusBitmap,
+# getMinusImage, getMinusIcon, getMoreData, getMoreBitmap, getMoreImage,
+# getMoreIcon, getMoveToOtherData, getMoveToOtherBitmap, getMoveToOtherImage,
+# getMoveToOtherIcon, getMusicData, getMusicBitmap, getMusicImage,
+# getMusicIcon, getMusicNoteData, getMusicNoteBitmap, getMusicNoteImage,
+# getMusicNoteIcon, getMyIconData, getMyIconBitmap, getMyIconImage,
+# getMyIconIcon, getMyIconData, getMyIconBitmap, getMyIconImage, getMyIconIcon,
+# getNextData, getNextBitmap, getNextImage, getNextIcon, getOpenData,
+# getOpenBitmap, getOpenImage, getOpenIcon, getOrangeBookmarkData,
+# getOrangeBookmarkBitmap, getOrangeBookmarkImage, getOrangeBookmarkIcon,
+# getOther16x16Data, getOther16x16Bitmap, getOther16x16Image,
+# getOther16x16Icon, getPauseData, getPauseBitmap, getPauseImage, getPauseIcon,
+# getPinkBookmarkData, getPinkBookmarkBitmap, getPinkBookmarkImage,
+# getPinkBookmarkIcon, getPlayData, getPlayBitmap, getPlayImage, getPlayIcon,
+# getPlusData, getPlusBitmap, getPlusImage, getPlusIcon, getPreviousData,
+# getPreviousBitmap, getPreviousImage, getPreviousIcon, getPurpleBookmarkData,
 # getPurpleBookmarkBitmap, getPurpleBookmarkImage, getPurpleBookmarkIcon,
 # getPyTisData, getPyTisBitmap, getPyTisImage, getPyTisIcon,
 # getQuestion16x16Data, getQuestion16x16Bitmap, getQuestion16x16Image,
@@ -1431,6 +1433,32 @@ def getBookmarkYellowImage():
 def getBookmarkYellowIcon():
     icon = EmptyIcon()
     icon.CopyFromBitmap(getBookmarkYellowBitmap())
+    return icon
+
+#----------------------------------------------------------------------
+def getBwBookmark16x16Data():
+    return \
+"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x06\
+\x00\x00\x00\x1f\xf3\xffa\x00\x00\x00\x04sBIT\x08\x08\x08\x08|\x08d\x88\x00\
+\x00\x00\xb8IDAT8\x8d\xad\x93M\n\xc20\x10\x85\xbf\t\xa5X\x08\x08\xd5\x8a\x9b\
+.\x14<B\x8f\x953d\xd3\x1b\xf6\x12\xdd\xd8U7Ja\xdc\xb4\xfe\x11\x8b\xa6>\x18H\
+\x98\xf7^^BFx@\xf9\r\x02`\xac\xb5[`\xff\xa3x2\x10\xd3\xf7}\x1aq\xfa\x1d&\xcb\
+\xb2X\xad\x02\x9a\xc4\xaa\x99\xde`\\H\xac\xcb\xe2\x04\x7f1\x88\xbd\x82\x01HT\
+U\xa6MT\x02\x11\xd1%\tL]\xd7\xe7\xaa\xaa\x86\x10\xc3{\xbf\x066\x1fz8\xe7\xd4\
+\x94eym\x9a&}'8\xe7V]\xd7]\xbc\xf7=\xb0\x0bx\x0cm\xdb\x0e\x14Ea\x81\x03\xe3\
+\xcf\x1aK\x02\x95\x078\x00\x9c\x80\xe3Sc\x0e\xf9\x1c\xef\xdb\x81z\x19\xbe\
+\x1b\xca\xda1\xe7\x9a\xdf4l\x00\x00\x00\x00IEND\xaeB`\x82" 
+
+def getBwBookmark16x16Bitmap():
+    return BitmapFromImage(getBwBookmark16x16Image())
+
+def getBwBookmark16x16Image():
+    stream = cStringIO.StringIO(getBwBookmark16x16Data())
+    return ImageFromStream(stream)
+
+def getBwBookmark16x16Icon():
+    icon = EmptyIcon()
+    icon.CopyFromBitmap(getBwBookmark16x16Bitmap())
     return icon
 
 #----------------------------------------------------------------------
@@ -3687,6 +3715,32 @@ def getLiteBlueBookmarkImage():
 def getLiteBlueBookmarkIcon():
     icon = EmptyIcon()
     icon.CopyFromBitmap(getLiteBlueBookmarkBitmap())
+    return icon
+
+#----------------------------------------------------------------------
+def getLittleBubbleData():
+    return \
+'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x06\
+\x00\x00\x00\x1f\xf3\xffa\x00\x00\x00\x04sBIT\x08\x08\x08\x08|\x08d\x88\x00\
+\x00\x00\x9fIDAT8\x8dc`\xa0\x100rpp\xec\xfc\xf5\xeb\x97###\xe3\x7fR4\xfe\xff\
+\xff\x9f\x91\x9d\x9d\xfd\x0c\x03\x0b\x0b\xcb\x1f\x06\x06\x86\xff\xe4b&FFF\
+\x8a\xbc\xc0D\x91\xeeQ\x03\xa8d\x00##\xe3\'r5\xb3\xb1\xb110vtt\xb8n\xda\xb4\
+\xa9\xf7\xd8\xb1c\xba\xc8\x92UUU\xd7\x08\x19\xc0\xcc\xcc\xfc\x8cq\xff\xfe\
+\xfd"\xee\xee\xee\x8f\x7f\xfd\xfa\xc5\x01\x93\xa8\xac\xac\x8c$\xa4\x99\x89\
+\x89\xe9\xff\xdf\xbf\x7f?3\n\x0b\x0bG\xbd}\xfbv)L\xa2\xbe\xbe^\x98\x81\x81\
+\xe1\x07\x91\xbe\xf8\xc7\xc0\x80H\xd7\x03\x03\x00\x0f\x04;`d\xaf`\xe2\x00\
+\x00\x00\x00IEND\xaeB`\x82' 
+
+def getLittleBubbleBitmap():
+    return BitmapFromImage(getLittleBubbleImage())
+
+def getLittleBubbleImage():
+    stream = cStringIO.StringIO(getLittleBubbleData())
+    return ImageFromStream(stream)
+
+def getLittleBubbleIcon():
+    icon = EmptyIcon()
+    icon.CopyFromBitmap(getLittleBubbleBitmap())
     return icon
 
 #----------------------------------------------------------------------

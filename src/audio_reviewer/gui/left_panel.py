@@ -139,9 +139,10 @@ class MyTree(DragAndDrop, wx.TreeCtrl):
 
           self.Expand(child_file)
 
-
     self.log.debug(ids)
     self.Expand(self.review_folder_item)
+
+
 class LeftPane(MyScrolledPanel):
   bgcolor='#FFFFFF'
 
@@ -254,6 +255,7 @@ class LeftPane(MyScrolledPanel):
           self.frame.bp.mediaPlayer.Stop()
           self.frame.current_file = SoundFile(test)
           self.frame.bp.loadMusic(test)
+          self.frame.cp.resetBookmark()
 
       elif item_type == 'bookmark':
         bookmark_time = result[0]

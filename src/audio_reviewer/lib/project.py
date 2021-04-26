@@ -1,6 +1,9 @@
 
 import os, sys
+import shutil
+
 import configobj as COBJ
+import lib.pyrotate as pyrotate
 
 acceptable_extensions = ['.midi', '.m4a', '.mp3', '.wav', '.wma']
 
@@ -14,6 +17,7 @@ class Project(object):
   _cfile=None
   name = None
   path = None
+  log = None
   _folders = ['to-keep', 'to-review', 'to-remove', 'other']
   _data = {
     'to-keep' : {},
@@ -61,15 +65,16 @@ class Project(object):
       path = os.path.abspath(os.path.join(self.path, folder))
       self.addFolder(folder, path)
 
-
 # --------------------------------------------------------------------------- #
 
-  def __init__(self, name=None, path=None):
+  def __init__(self, name=None, path=None, log=None):
     
     if name: self.name=name
     if path: self.path=path
+    if log: self.log=log
 
     if self._config_file_path and os.path.exists(self._config_file_path):
+      backup_ini(self._config_file_path, self.log)
       self.load()
 
   def validateCoreFolders(self):
@@ -127,7 +132,6 @@ class Project(object):
     self.save()
 
   def moveFile(self, SoundFile, old_path, old_folder, new_path, new_folder):
-  #self.Project.moveFile(old_path, old_folder, new_path, new_folder=target)
     data = self.data.get(old_folder, {}).get(old_path, {})
     bookmarks = data.get('bookmarks', {})
 
@@ -273,3 +277,62 @@ class Project(object):
     self.addFolder('other',
       os.path.abspath( os.path.join(self.path, 'other')))
 
+def backup_ini(store_file, log):
+
+  try:
+    old = os.path.abspath(store_file)
+    new = "temp-%s.bak" % os.path.basename(store_file)
+
+    new = os.path.abspath(new)
+
+    if os.path.exists(new):
+      new = safe_fname(new)
+
+    if os.path.exists(new):
+      raise Exception("Cannot backup INI file." )
+
+    shutil.copy(old, new)
+
+  except IOError:
+    raise
+  except OSError:
+    raise
+  else:
+    pass
+
+  pyrotate.run([store_file], log)
+  os.unlink(old)
+  shutil.move(new, old)
+
+
+def safe_fname(fpath, i=None):
+  """ Find a safe new destination filename for a file about to be moved,
+  ensuring that an existing file isn't moved over.
+  Now, this appears to work, though I think the UPPER and LOWER may affect
+  directories too, and I need to check that.
+  """
+  test_fpath = fpath
+
+  if not os.path.exists(test_fpath):
+    return test_fpath
+  else:
+    if not i:
+      i = 1
+    else:
+      i=i+1
+    fname = os.path.basename(fpath)
+    bag = os.path.splitext(fname)
+    testname = "%s_%s%s" % (bag[0],i,bag[1])
+
+    newfile = os.path.abspath(os.path.join(os.path.dirname(fpath), testname))
+
+    if not os.path.exists(newfile):
+      if i is not None:
+        print("%s already existed in the outdir, added _%s to the end " \
+          "of the filename." % (fname,i))
+#        log.warn("%s already existed in the outdir, added _%s to the end " \
+#          "of the filename." % (fname,i))
+      return newfile
+    else:
+      return safe_fname(fpath,i)
+  

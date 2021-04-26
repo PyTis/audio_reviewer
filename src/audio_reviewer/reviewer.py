@@ -873,7 +873,7 @@ def backup_ini(opts, store_file):
     pass
 
   
-  pyrotate.run(opts, [store_file], log)
+  pyrotate.run([store_file], log)
   os.unlink(old)
   shutil.move(new, old)
 

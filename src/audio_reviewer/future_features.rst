@@ -1,6 +1,13 @@
 PyTis Audio Reviewer
 ====================
 
+
+Features for this version.
+--------------------------
+
+* When Summary has focus, catch TAB keypress, then enable Description (if
+summary has value) and move focus there).
+
 Features for other versions.
 ----------------------------
 

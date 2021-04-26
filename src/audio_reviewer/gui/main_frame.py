@@ -188,7 +188,7 @@ class MainFrame(wx.Frame):
     self.rp = RightPane(self.vsplitter, self, log, size=(180, 450), style=sty)
     self.rp.Show(True)
     self.rp.MaxSize = (200,2880)
-    self.rp.SetOtherLabel("Bookmark View")
+    self.rp.SetOtherLabel("Attorney Notes")
     self.vsplitter.AppendWindow(self.rp, 180)
 
     self.bp = MediaPanel(self.hsplitter, self, log, size=(800, 150), 
@@ -396,15 +396,19 @@ class MainFrame(wx.Frame):
     self.CONFIG['last_projects'] = self.CONFIG.last_projects
     self.CONFIG.save()
 
+  def loadProject(self):
+    # XXX- PROJECT OPENING
+    self.Project = Project(name=self.CONFIG.project_name,
+      path=self.CONFIG.project_path, log=self.log)
+    self.Project.load()
+
   def setCurrentProject(self, name, path):
-    self.Project = Project(name, path)
+    # XXX- PROJECT OPENING
+    self.Project = Project(name, path, log=self.log)
     self.CONFIG['project_path'] = self.project_path
     self.CONFIG['project_name'] = self.project_name
     self.CONFIG.save()
 
-
-
-  #def openProject(self, name=str_or_obj, path=str):
   def openProject(self, name_or_prj='', path=''):
     if str(type(name_or_prj)) == "<class 'lib.project.Project'>":
       name = str(name_or_prj.name)
@@ -546,6 +550,8 @@ class MainFrame(wx.Frame):
           # this is too advanced for now, but the first item in history should
           # be disabled, the trick is re-eneabling it as it becomes the second,
           # and so on 
+
+          # AHA!!! I can just skip/ hide the Zero'th item. XXX-TODO
 
           # new_item.Enable(False)
           self.file_menu.InsertItem(new_pos, new_item)
@@ -769,6 +775,9 @@ class MainFrame(wx.Frame):
             target = SoundFile(os.path.abspath(os.path.join(store, \
               source.filename) )) # basename with lowercase extension
 
+            # XXX-TODO CHANGE THIS TO ONLY COMPARE MD5 against all MD5's from
+            # all folders of already imported files.
+
             if os.path.exists(target.fpath):
               # The target exists by FILENAME
               if target.md5 == source.md5:
@@ -881,6 +890,8 @@ class MainFrame(wx.Frame):
             target = SoundFile(os.path.abspath(os.path.join(
               self.Project.review, source.filename) ))
 
+            # XXX-TODO CHANGE THIS TO ONLY COMPARE MD5 against all MD5's from
+            # all folders of already imported files.
             if os.path.exists(target.fpath):
               # The target exists by FILENAME
               if target.md5 == source.md5:
@@ -972,8 +983,6 @@ class MainFrame(wx.Frame):
 
     dlg.Destroy()
 
-    # XXX-TODO
-
   def onToggleDebugFrame(self, event):
     global log
     if self.LogFrame.IsShown():
@@ -1044,11 +1053,6 @@ class MainFrame(wx.Frame):
         showObj.Show(True)
             
     return _(hideObj,showObj)
-
-  def loadProject(self):
-    self.Project = Project(name=self.CONFIG.project_name,
-      path=self.CONFIG.project_path)
-    self.Project.load()
 
   def setTitle(self, project_name=''):
     self.SetTitle("Audio Reviewer - %s :: 2020-%s (c) " \

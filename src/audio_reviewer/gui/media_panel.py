@@ -420,11 +420,11 @@ import wx.lib.buttons  as  buttons
       self.playPauseBtn.Enable(True)
       if current_state == WM.MEDIASTATE_PLAYING:
         self.playPauseBtn.SetToggle(True)
-        self.mediaPlayer.Play()
+#        self.mediaPlayer.Play()
         self.mediaPlayer.Seek(offset)
       elif current_state == WM.MEDIASTATE_PAUSED:
         self.mediaPlayer.Seek(offset)
-        self.mediaPlayer.Pause()
+#        self.mediaPlayer.Pause()
 
     
     return
@@ -538,6 +538,7 @@ import wx.lib.buttons  as  buttons
       self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
 
       self.mediaPlayer.Play() # THIS IS THE ONE THAT PLAYS THE FILE
+      self.mediaPlayer.SetPlaybackRate(self.currentRate)
       self.playPauseBtn.SetToggle(True)
 
 

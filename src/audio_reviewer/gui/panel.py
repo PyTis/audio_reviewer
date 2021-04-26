@@ -490,6 +490,14 @@ class CenterPane(MyPanel):
 
     self.frame.bp.Seek(Time24(bookmark_time).milliseconds)
 
+  def resetBookmark(self, evt=None):
+    self.current_bookmark = None
+    self.time24.SetValue('00:00:00')
+    self.summ_text_ctrl.SetValue('')
+    self.desc_text_ctrl.SetValue('')
+    self.removeBtn.Enable(False)
+    self.jumpBtn.Enable(False)
+
   def onRemoveBookmark(self, evt):
     if self.current_bookmark:
       self.time24.SetValue('00:00:00')
